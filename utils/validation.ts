@@ -63,6 +63,33 @@ export const signInSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 })
 
+// Profile validation schemas
+export const profileUpdateSchema = z.object({
+  first_name: z.string().min(1, 'First name is required').max(50, 'First name too long'),
+  last_name: z.string().min(1, 'Last name is required').max(50, 'Last name too long'),
+  phone: z.string().optional().refine((val) => {
+    if (!val) return true
+    return /^\+?[\d\s\-()]+$/.test(val) && val.replace(/[\s\-()]/g, '').length >= 10
+  }, 'Please enter a valid phone number'),
+})
+
+export const passwordChangeSchema = z.object({
+  currentPassword: z.string().min(1, 'Current password is required'),
+  newPassword: passwordSchema,
+  confirmPassword: z.string(),
+}).refine((data) => data.newPassword === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+})
+
+export const avatarUploadSchema = z.object({
+  file: z.instanceof(File).refine((file) => {
+    return file.size <= 5 * 1024 * 1024 // 5MB
+  }, 'File size must be less than 5MB').refine((file) => {
+    return ['image/jpeg', 'image/png', 'image/webp'].includes(file.type)
+  }, 'File must be a JPEG, PNG, or WebP image'),
+})
+
 export const profileSchema = z.object({
   full_name: z.string().min(1, 'Full name is required'),
   phone: phoneSchema,

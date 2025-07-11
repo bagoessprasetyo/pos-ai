@@ -95,7 +95,7 @@ export default function StoresPage() {
         if (error) throw error
       } else {
         // Create new store
-        const { error } = await supabase
+        const { data: store, error } = await supabase
           .from('stores')
           .insert({
             ...data,
@@ -119,8 +119,25 @@ export default function StoresPage() {
               }
             }
           })
+          .select()
+          .single()
 
         if (error) throw error
+
+        // Add owner to store_staff table
+        const { error: staffError } = await supabase
+          .from('store_staff')
+          .insert({
+            store_id: store.id,
+            user_id: user.user.id,
+            role: 'owner',
+          })
+
+        if (staffError) {
+          console.error('Failed to add owner to store staff:', staffError)
+          // Don't throw error here since the store was created successfully
+          // The database trigger should handle this, but this is a backup
+        }
       }
 
       await refreshStores()

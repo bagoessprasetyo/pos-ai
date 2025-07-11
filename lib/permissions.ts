@@ -184,7 +184,7 @@ export class PermissionChecker {
     }
 
     // Get base permissions for role
-    const basePermissions = rolePermissions[this.staffMember.role]
+    const basePermissions = rolePermissions[this.staffMember.role] || rolePermissions.viewer
     
     // Merge with any custom permissions stored in the staff record
     const customPermissions = this.staffMember.permissions?.permissions || {}

@@ -13,8 +13,10 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/contexts/auth-context'
 import { useStore } from '@/contexts/store-context'
+import { useProfile } from '@/hooks/use-profile'
 import { signOut } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,6 +34,7 @@ interface HeaderProps {
 export function Header({ onMenuClick, showMenuButton = true }: HeaderProps) {
   const { user, signOut: signOutContext } = useAuth()
   const { currentStore, stores, setCurrentStore } = useStore()
+  const { profile } = useProfile()
 
   const handleSignOut = async () => {
     try {
@@ -40,6 +43,26 @@ export function Header({ onMenuClick, showMenuButton = true }: HeaderProps) {
     } catch (error) {
       console.error('Error signing out:', error)
     }
+  }
+
+  const getDisplayName = () => {
+    if (profile?.first_name && profile?.last_name) {
+      return `${profile.first_name} ${profile.last_name}`
+    }
+    if (profile?.first_name) {
+      return profile.first_name
+    }
+    return user?.email?.split('@')[0] || 'User'
+  }
+
+  const getInitials = () => {
+    const displayName = getDisplayName()
+    return displayName
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2)
   }
 
   return (
@@ -107,11 +130,14 @@ export function Header({ onMenuClick, showMenuButton = true }: HeaderProps) {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                  <User className="h-4 w-4" />
-                </div>
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={profile?.avatar_url} alt={getDisplayName()} />
+                  <AvatarFallback>
+                    {getInitials()}
+                  </AvatarFallback>
+                </Avatar>
                 <span className="hidden sm:inline">
-                  {user?.profile?.full_name || user?.email}
+                  {getDisplayName()}
                 </span>
                 <ChevronDown className="h-4 w-4" />
               </Button>

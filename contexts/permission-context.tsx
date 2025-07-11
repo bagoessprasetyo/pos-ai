@@ -76,8 +76,41 @@ export function PermissionProvider({ children }: { children: React.ReactNode }) 
 
         setStaffMember(staffMemberData)
       } else {
-        // User is not a staff member of this store
-        setStaffMember(null)
+        // Check if user is the owner of this store
+        if (currentStore.owner_id === user.user.id) {
+          // Get user profile for owner
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', user.user.id)
+            .single()
+
+          if (profileError) {
+            console.error('Error fetching owner profile:', profileError)
+          }
+
+          // Create virtual staff member for store owner
+          const ownerStaffMember: StaffMemberWithProfile = {
+            id: `owner-${currentStore.id}`, // Virtual ID
+            store_id: currentStore.id,
+            user_id: user.user.id,
+            role: 'owner',
+            permissions: null, // Will use default owner permissions
+            is_active: true,
+            created_at: currentStore.created_at,
+            updated_at: currentStore.updated_at,
+            email: profileData?.email || user.user.email || '',
+            full_name: profileData?.full_name || null,
+            phone: profileData?.phone || null,
+            avatar_url: profileData?.avatar_url || null,
+            hourly_rate: undefined
+          }
+
+          setStaffMember(ownerStaffMember)
+        } else {
+          // User is not a staff member or owner of this store
+          setStaffMember(null)
+        }
       }
     } catch (err) {
       console.error('Error fetching staff member:', err)
