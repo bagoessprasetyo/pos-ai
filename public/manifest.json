@@ -1,0 +1,31 @@
+{
+  "name": "POS AI - Mobile-First Point of Sale System",
+  "short_name": "POS AI",
+  "description": "A comprehensive mobile-first POS system for small to medium businesses",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#000000",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "categories": ["business", "productivity", "finance"],
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "48x48",
+      "type": "image/x-icon"
+    }
+  ],
+  "features": [
+    "Point of Sale transactions",
+    "Product catalog management",
+    "Multi-store support",
+    "Sales analytics",
+    "AI-powered insights",
+    "Offline capabilities"
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false,
+  "lang": "en",
+  "dir": "ltr"
+}

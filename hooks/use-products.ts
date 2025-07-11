@@ -21,6 +21,8 @@ export function useProducts() {
 
     try {
       setLoading(true)
+      console.log('Fetching products for store:', currentStore.id)
+      
       const { data, error } = await supabase
         .from('products')
         .select(`
@@ -32,6 +34,8 @@ export function useProducts() {
         .order('name')
 
       if (error) throw error
+      
+      console.log('Fetched products:', data?.length || 0, 'products')
       setProducts(data || [])
       setError(null)
     } catch (err) {
@@ -45,6 +49,8 @@ export function useProducts() {
   const createProduct = async (productData: ProductFormData) => {
     if (!currentStore) throw new Error('No store selected')
 
+    console.log('Creating product:', productData)
+    
     const { data, error } = await supabase
       .from('products')
       .insert({
@@ -54,7 +60,12 @@ export function useProducts() {
       .select()
       .single()
 
-    if (error) throw error
+    if (error) {
+      console.error('Product creation error:', error)
+      throw error
+    }
+    
+    console.log('Product created successfully:', data)
     await fetchProducts() // Refresh the list
     return data
   }

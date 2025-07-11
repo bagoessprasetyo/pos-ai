@@ -23,16 +23,18 @@ import { ProductImageStorage } from '@/lib/supabase/storage'
 import { useStore } from '@/contexts/store-context'
 import type { Product, ProductFormData } from '@/types'
 import { z } from 'zod'
+import { toast } from 'sonner'
 
 interface ProductDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   product?: Product | null
+  onSuccess?: () => void
 }
 
 type FormData = z.infer<typeof productSchema>
 
-export function ProductDialog({ open, onOpenChange, product }: ProductDialogProps) {
+export function ProductDialog({ open, onOpenChange, product, onSuccess }: ProductDialogProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [productImages, setProductImages] = useState<string[]>([])
@@ -117,12 +119,19 @@ export function ProductDialog({ open, onOpenChange, product }: ProductDialogProp
 
       if (product) {
         await updateProduct(product.id, productData)
+        toast.success('Product updated successfully')
       } else {
         await createProduct(productData)
+        toast.success('Product created successfully')
       }
+      
+      // Call success callback if provided
+      onSuccess?.()
       onOpenChange(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save product')
+      const errorMessage = err instanceof Error ? err.message : 'Failed to save product'
+      setError(errorMessage)
+      toast.error(errorMessage)
     } finally {
       setLoading(false)
     }

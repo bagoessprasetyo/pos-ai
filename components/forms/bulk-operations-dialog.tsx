@@ -31,6 +31,7 @@ import {
   Loader2 
 } from 'lucide-react'
 import { formatPrice } from '@/utils/currency'
+import { toast } from 'sonner'
 
 interface BulkOperationsDialogProps {
   open: boolean
@@ -95,7 +96,7 @@ export function BulkOperationsDialog({ open, onClose }: BulkOperationsDialogProp
       setValidationErrors([])
       setImportResult(null)
     } else {
-      alert('Please select a valid CSV file')
+      toast.error('Please select a valid CSV file')
     }
   }
 
@@ -224,6 +225,14 @@ export function BulkOperationsDialog({ open, onClose }: BulkOperationsDialogProp
             errors: allErrors,
             total: csvData.length
           })
+          
+          if (successCount > 0) {
+            toast.success(`Successfully imported ${successCount} product${successCount === 1 ? '' : 's'}`)
+          }
+          if (allErrors.length > 0) {
+            toast.error(`${allErrors.length} product${allErrors.length === 1 ? '' : 's'} failed to import`)
+          }
+          
           setImporting(false)
         }
       })
@@ -235,7 +244,7 @@ export function BulkOperationsDialog({ open, onClose }: BulkOperationsDialogProp
 
   const handleExport = async () => {
     if (!products.length) {
-      alert('No products to export')
+      toast.error('No products to export')
       return
     }
 
@@ -269,6 +278,7 @@ export function BulkOperationsDialog({ open, onClose }: BulkOperationsDialogProp
       link.download = `products-${currentStore?.name || 'export'}-${new Date().toISOString().split('T')[0]}.csv`
       link.click()
       
+      toast.success(`Successfully exported ${products.length} product${products.length === 1 ? '' : 's'}`)
       setExporting(false)
     } catch (error) {
       console.error('Export error:', error)
@@ -360,9 +370,11 @@ export function BulkOperationsDialog({ open, onClose }: BulkOperationsDialogProp
       setBulkCategory('')
       setBulkStatus(null)
       
+      toast.success(`Successfully updated ${selectedProducts.length} product${selectedProducts.length === 1 ? '' : 's'}`)
+      
     } catch (error) {
       console.error('Bulk edit error:', error)
-      alert('Failed to update some products')
+      toast.error('Failed to update some products')
     } finally {
       setBulkEditing(false)
       setProgress(0)

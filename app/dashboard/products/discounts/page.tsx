@@ -28,6 +28,7 @@ import {
 } from 'lucide-react'
 import { DiscountDialog } from '@/components/forms/discount-dialog'
 import { formatPrice } from '@/utils/currency'
+import { toast } from 'sonner'
 import type { Discount } from '@/types'
 
 export default function DiscountsPage() {
@@ -66,9 +67,10 @@ export default function DiscountsPage() {
     if (confirm('Are you sure you want to delete this discount?')) {
       try {
         await deleteDiscount(discountId)
+        toast.success('Discount deleted successfully')
       } catch (error) {
         console.error('Error deleting discount:', error)
-        alert('Failed to delete discount')
+        toast.error('Failed to delete discount')
       }
     }
   }

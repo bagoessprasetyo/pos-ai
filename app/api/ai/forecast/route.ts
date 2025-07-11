@@ -104,7 +104,51 @@ Provide realistic, data-driven forecasts with actionable insights.
     try {
       forecastData = JSON.parse(completion)
     } catch (parseError) {
-      throw new Error('Invalid AI response format')
+      console.error('Failed to parse AI forecast response:', parseError)
+      console.log('AI Response:', completion)
+      
+      // Fallback: create a basic forecast structure with minimal predictions
+      const today = new Date()
+      const fallbackForecasts = []
+      
+      // Generate simple fallback forecasts based on historical average
+      const avgDailySales = dailySales.length > 0 
+        ? dailySales.reduce((a, b) => a + b.sales, 0) / dailySales.length 
+        : 0
+      const avgTransactions = dailySales.length > 0 
+        ? dailySales.reduce((a, b) => a + b.transactions, 0) / dailySales.length 
+        : 0
+      
+      for (let i = 1; i <= forecast_days; i++) {
+        const forecastDate = new Date(today)
+        forecastDate.setDate(today.getDate() + i)
+        
+        fallbackForecasts.push({
+          date: forecastDate.toISOString().split('T')[0],
+          predicted_sales: Math.round(avgDailySales * 100) / 100,
+          predicted_transactions: Math.round(avgTransactions),
+          confidence_interval: {
+            lower: Math.round(avgDailySales * 0.8 * 100) / 100,
+            upper: Math.round(avgDailySales * 1.2 * 100) / 100
+          }
+        })
+      }
+      
+      forecastData = {
+        forecasts: fallbackForecasts,
+        insights: {
+          period: `${forecast_days} days`,
+          growth_rate: 0,
+          seasonality_pattern: 'Analysis temporarily unavailable - using historical averages',
+          peak_days: ['Saturday', 'Sunday'],
+          recommended_actions: [
+            'Review AI service configuration',
+            'Ensure sufficient historical data quality',
+            'Contact support if issues persist'
+          ],
+          accuracy_score: 0.3
+        }
+      }
     }
 
     // Validate forecast data structure

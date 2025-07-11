@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { createClient } from '@/lib/supabase/client'
 import { useStore } from '@/contexts/store-context'
+import { useAuth } from '@/contexts/auth-context'
 import { Database } from '@/types'
 
 type Analytics = {
@@ -53,10 +54,24 @@ export function useAnalytics() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   
-  const supabase = createClientComponentClient<Database>()
+  const supabase = createClient()
   const { currentStore } = useStore()
+  const { user, loading: authLoading } = useAuth()
 
   const fetchAnalytics = async () => {
+    // Wait for auth to complete loading
+    if (authLoading) {
+      console.log('⏳ Auth still loading, waiting...')
+      return
+    }
+
+    if (!user) {
+      console.log('🚫 No authenticated user available')
+      setError('Authentication required')
+      setLoading(false)
+      return
+    }
+
     if (!currentStore?.id) {
       console.log('🚫 No current store available for analytics')
       setError('No store selected')
@@ -64,21 +79,96 @@ export function useAnalytics() {
       return
     }
 
-    // Get analytics for the current store
+    console.log('📊 Fetching analytics for store:', currentStore.id, currentStore.name)
 
     try {
       setLoading(true)
       setError(null)
 
-      const today = new Date()
-      // Use UTC for all date calculations to match database timestamps
-      const startOfDay = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()))
-      const startOfWeek = new Date(today.getTime() - (7 * 24 * 60 * 60 * 1000))
-      const startOfMonth = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1))
+      console.log('🔐 Using authenticated user from context:', {
+        userId: user.id,
+        email: user.email || user.profile?.email
+      })
+
+      // DEBUG: Test if user can access this store
+      const { data: storeAccess, error: storeAccessError } = await supabase
+        .from('stores')
+        .select('id, name, owner_id')
+        .eq('id', currentStore.id)
+        .single()
+
+      console.log('🏪 Store access test:', {
+        requestedStoreId: currentStore.id,
+        storeAccess,
+        storeAccessError,
+        userIsOwner: storeAccess?.owner_id === user.id
+      })
+
+      // DEBUG: Test if user has staff access
+      const { data: staffAccess, error: staffAccessError } = await supabase
+        .from('store_staff')
+        .select('id, store_id, user_id, role, is_active')
+        .eq('store_id', currentStore.id)
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .single()
+
+      console.log('👥 Staff access test:', {
+        staffAccess,
+        staffAccessError
+      })
+      const now = new Date()
       
-      // Calculate date ranges for analytics queries
+      // Create today's date range in local timezone, then convert to ISO
+      // This ensures we're comparing against the correct day regardless of timezone
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)
+      const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
       
-      // Get today's data
+      const todayStartISO = todayStart.toISOString()
+      const todayEndISO = todayEnd.toISOString()
+      
+      console.log('📅 FIXED Date ranges (local timezone to ISO):', {
+        now: now.toISOString(),
+        todayStartISO,
+        todayEndISO,
+        currentStoreId: currentStore.id,
+        localTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+      })
+
+      // Test: First get ALL transactions for this store to see what we have
+      const { data: allTransactions, error: allError } = await supabase
+        .from('transactions')
+        .select('id, total, created_at, status')
+        .eq('store_id', currentStore.id)
+        .order('created_at', { ascending: false })
+
+      console.log('🔍 ALL transactions for store:', {
+        count: allTransactions?.length || 0,
+        error: allError,
+        sample: allTransactions?.slice(0, 3)
+      })
+
+      // Test: Try to get today's transactions using a simpler approach
+      const { data: testToday, error: testError } = await supabase
+        .from('transactions')
+        .select('id, total, created_at, status')
+        .eq('store_id', currentStore.id)
+        .eq('status', 'completed')
+        .order('created_at', { ascending: false })
+        .limit(10)
+
+      console.log('🧪 SIMPLE TEST - Recent completed transactions:', {
+        count: testToday?.length || 0,
+        error: testError,
+        data: testToday?.map(t => ({
+          id: t.id,
+          total: t.total,
+          created_at: t.created_at,
+          date_only: t.created_at.split('T')[0]
+        }))
+      })
+
+      // Now test today's query with corrected ISO timestamps
       const { data: todayTransactions, error: todayError } = await supabase
         .from('transactions')
         .select(`
@@ -90,162 +180,98 @@ export function useAnalytics() {
           )
         `)
         .eq('store_id', currentStore.id)
-        .gte('created_at', startOfDay.toISOString())
+        .eq('status', 'completed')
+        .gte('created_at', todayStartISO)
+        .lte('created_at', todayEndISO)
         .order('created_at', { ascending: false })
 
-      if (todayError) throw todayError
+      console.log('📈 Today\'s transactions DETAILED (ISO):', {
+        queryParams: {
+          store_id: currentStore.id,
+          status: 'completed',
+          gte_created_at: todayStartISO,
+          lte_created_at: todayEndISO
+        },
+        resultCount: todayTransactions?.length || 0,
+        error: todayError,
+        rawResults: todayTransactions
+      })
 
-      // Calculate today's metrics
-      const todaysSales = todayTransactions?.reduce((sum, t) => sum + t.total, 0) || 0
+      if (todayError) {
+        console.error('❌ Today transactions error:', todayError)
+        throw todayError
+      }
+
+      // Calculate today's metrics with detailed logging
+      const todaysSales = todayTransactions?.reduce((sum, t) => {
+        const amount = Number(t.total) || 0
+        console.log(`Transaction ${t.id}: ${amount}`)
+        return sum + amount
+      }, 0) || 0
+      
       const todaysTransactions = todayTransactions?.length || 0
-      const todaysItemsSold = todayTransactions?.reduce((sum, t) => 
-        sum + (t.transaction_items?.reduce((itemSum, item) => itemSum + item.quantity, 0) || 0), 0
-      ) || 0
+      const todaysItemsSold = todayTransactions?.reduce((sum, t) => {
+        const itemsCount = t.transaction_items?.reduce((itemSum, item) => itemSum + (item.quantity || 0), 0) || 0
+        return sum + itemsCount
+      }, 0) || 0
       const avgTransactionValue = todaysTransactions > 0 ? todaysSales / todaysTransactions : 0
 
-      // Today's metrics calculated
+      console.log('📊 Today\'s calculated metrics:', {
+        todaysSales,
+        todaysTransactions,
+        todaysItemsSold,
+        avgTransactionValue,
+        rawTransactionData: todayTransactions?.map(t => ({ id: t.id, total: t.total }))
+      })
 
-      // Get week and month data
+      // Calculate week sales (last 7 days)
+      const weekStart = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000) // 6 days ago + today = 7 days
+      weekStart.setHours(0, 0, 0, 0)
+      const weekStartISO = weekStart.toISOString()
+      
       const { data: weekTransactions, error: weekError } = await supabase
         .from('transactions')
         .select('total')
         .eq('store_id', currentStore.id)
-        .gte('created_at', startOfWeek.toISOString())
+        .eq('status', 'completed')
+        .gte('created_at', weekStartISO)
+        .lte('created_at', todayEndISO)
 
-      if (weekError) throw weekError
+      const weekSales = weekTransactions?.reduce((sum, t) => sum + (Number(t.total) || 0), 0) || 0
 
+      console.log('📅 Week sales calculation:', {
+        weekStartISO,
+        todayEndISO,
+        weekTransactionsCount: weekTransactions?.length || 0,
+        weekSales,
+        weekError
+      })
+
+      // Calculate month sales (last 30 days)
+      const monthStart = new Date(now.getTime() - 29 * 24 * 60 * 60 * 1000) // 29 days ago + today = 30 days
+      monthStart.setHours(0, 0, 0, 0)
+      const monthStartISO = monthStart.toISOString()
+      
       const { data: monthTransactions, error: monthError } = await supabase
         .from('transactions')
         .select('total')
         .eq('store_id', currentStore.id)
-        .gte('created_at', startOfMonth.toISOString())
+        .eq('status', 'completed')
+        .gte('created_at', monthStartISO)
+        .lte('created_at', todayEndISO)
 
-      if (monthError) throw monthError
+      const monthSales = monthTransactions?.reduce((sum, t) => sum + (Number(t.total) || 0), 0) || 0
 
-      const weekSales = weekTransactions?.reduce((sum, t) => sum + t.total, 0) || 0
-      const monthSales = monthTransactions?.reduce((sum, t) => sum + t.total, 0) || 0
-
-      // Get top products (last 30 days)
-      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-      
-      const { data: topProductsData, error: topProductsError } = await supabase
-        .from('transaction_items')
-        .select(`
-          product_id,
-          quantity,
-          unit_price,
-          products!inner (
-            name
-          ),
-          transactions!inner (
-            store_id,
-            created_at
-          )
-        `)
-        .eq('transactions.store_id', currentStore.id)
-        .gte('transactions.created_at', thirtyDaysAgo.toISOString())
-
-      if (topProductsError) throw topProductsError
-
-      // Aggregate top products
-      const productMap = new Map()
-      topProductsData?.forEach(item => {
-        const productId = item.product_id
-        const productName = (item.products as any)?.name || 'Unknown Product'
-        const sales = item.quantity * item.unit_price
-        
-        if (productMap.has(productId)) {
-          const existing = productMap.get(productId)
-          productMap.set(productId, {
-            ...existing,
-            sales: existing.sales + sales,
-            quantity: existing.quantity + item.quantity
-          })
-        } else {
-          productMap.set(productId, {
-            id: productId,
-            name: productName,
-            sales: sales,
-            quantity: item.quantity
-          })
-        }
+      console.log('📅 Month sales calculation:', {
+        monthStartISO,
+        todayEndISO,
+        monthTransactionsCount: monthTransactions?.length || 0,
+        monthSales,
+        monthError
       })
-
-      const topProducts = Array.from(productMap.values())
-        .sort((a, b) => b.sales - a.sales)
-        .slice(0, 5)
-
-      // Get sales trend (last 7 days)
-      const salesTrend = []
-      for (let i = 6; i >= 0; i--) {
-        const date = new Date(today.getTime() - (i * 24 * 60 * 60 * 1000))
-        // Use UTC for trend day calculations too
-        const startOfTrendDay = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))
-        const endOfTrendDay = new Date(startOfTrendDay.getTime() + 24 * 60 * 60 * 1000)
-        
-        const { data: dayTransactions } = await supabase
-          .from('transactions')
-          .select('total')
-          .eq('store_id', currentStore.id)
-          .gte('created_at', startOfTrendDay.toISOString())
-          .lt('created_at', endOfTrendDay.toISOString())
-        
-        const sales = dayTransactions?.reduce((sum, t) => sum + t.total, 0) || 0
-        const transactions = dayTransactions?.length || 0
-        
-        salesTrend.push({
-          date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-          sales,
-          transactions
-        })
-      }
-
-      // Get category performance (last 30 days)
-      const { data: categoryData } = await supabase
-        .from('transaction_items')
-        .select(`
-          unit_price,
-          quantity,
-          products!inner (
-            category_id,
-            categories (
-              name
-            )
-          ),
-          transactions!inner (
-            store_id,
-            created_at
-          )
-        `)
-        .eq('transactions.store_id', currentStore.id)
-        .gte('transactions.created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
-
-      const categoryMap = new Map()
-      let totalCategorySales = 0
-      
-      categoryData?.forEach(item => {
-        const categoryName = (item.products as any)?.categories?.name || 'Uncategorized'
-        const sales = item.quantity * item.unit_price
-        totalCategorySales += sales
-        
-        if (categoryMap.has(categoryName)) {
-          categoryMap.set(categoryName, categoryMap.get(categoryName) + sales)
-        } else {
-          categoryMap.set(categoryName, sales)
-        }
-      })
-
-      const categoryPerformance = Array.from(categoryMap.entries())
-        .map(([name, sales]) => ({
-          name,
-          sales,
-          percentage: totalCategorySales > 0 ? (sales / totalCategorySales) * 100 : 0
-        }))
-        .sort((a, b) => b.sales - a.sales)
-        .slice(0, 5)
 
       // Get recent transactions
-      const { data: recentTransactionsData } = await supabase
+      const { data: recentTransactions, error: recentError } = await supabase
         .from('transactions')
         .select(`
           id,
@@ -257,18 +283,29 @@ export function useAnalytics() {
           )
         `)
         .eq('store_id', currentStore.id)
+        .eq('status', 'completed')
         .order('created_at', { ascending: false })
-        .limit(5)
+        .limit(10)
 
-      const recentTransactions = recentTransactionsData?.map(t => ({
+      const formattedRecentTransactions = recentTransactions?.map(t => ({
         id: t.id,
         transaction_number: t.transaction_number,
-        total: t.total,
-        items_count: t.transaction_items?.reduce((sum, item) => sum + item.quantity, 0) || 0,
+        total: Number(t.total) || 0,
+        items_count: t.transaction_items?.reduce((sum, item) => sum + (item.quantity || 0), 0) || 0,
         created_at: t.created_at
       })) || []
 
-      setAnalytics({
+      console.log('📋 Recent transactions:', {
+        count: formattedRecentTransactions.length,
+        recentError
+      })
+
+      // For now, set these to empty arrays - can be implemented later
+      const topProducts: any[] = []
+      const salesTrend: any[] = []
+      const categoryPerformance: any[] = []
+
+      const finalAnalytics = {
         todaysSales,
         todaysTransactions,
         todaysItemsSold,
@@ -278,11 +315,14 @@ export function useAnalytics() {
         topProducts,
         salesTrend,
         categoryPerformance,
-        recentTransactions
-      })
+        recentTransactions: formattedRecentTransactions
+      }
+
+      console.log('✅ FINAL analytics result:', finalAnalytics)
+      setAnalytics(finalAnalytics)
 
     } catch (err) {
-      console.error('Error fetching analytics:', err)
+      console.error('❌ Error fetching analytics:', err)
       setError(err instanceof Error ? err.message : 'Failed to fetch analytics')
     } finally {
       setLoading(false)
@@ -291,7 +331,7 @@ export function useAnalytics() {
 
   useEffect(() => {
     fetchAnalytics()
-  }, [currentStore?.id])
+  }, [currentStore?.id, user, authLoading])
 
   return {
     analytics,

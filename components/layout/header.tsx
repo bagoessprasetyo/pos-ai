@@ -9,7 +9,8 @@ import {
   LogOut, 
   Settings,
   ChevronDown,
-  Store as StoreIcon
+  Store as StoreIcon,
+  PanelLeft
 } from 'lucide-react'
 import { useAuth } from '@/contexts/auth-context'
 import { useStore } from '@/contexts/store-context'
@@ -28,10 +29,11 @@ import {
 
 interface HeaderProps {
   onMenuClick?: () => void
+  onToggleSidebar?: () => void
   showMenuButton?: boolean
 }
 
-export function Header({ onMenuClick, showMenuButton = true }: HeaderProps) {
+export function Header({ onMenuClick, onToggleSidebar, showMenuButton = true }: HeaderProps) {
   const { user, signOut: signOutContext } = useAuth()
   const { currentStore, stores, setCurrentStore } = useStore()
   const { profile } = useProfile()
@@ -77,6 +79,18 @@ export function Header({ onMenuClick, showMenuButton = true }: HeaderProps) {
               onClick={onMenuClick}
             >
               <Menu className="h-5 w-5" />
+            </Button>
+          )}
+          
+          {/* Desktop Sidebar Toggle */}
+          {onToggleSidebar && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="hidden md:flex"
+              onClick={onToggleSidebar}
+            >
+              <PanelLeft className="h-5 w-5" />
             </Button>
           )}
           

@@ -28,6 +28,7 @@ import {
   Mail
 } from 'lucide-react'
 import { formatPrice } from '@/utils/currency'
+import { toast } from 'sonner'
 import type { ProductWithCategory, CartItem, PosTransaction } from '@/types'
 
 export default function POSPage() {
@@ -649,10 +650,11 @@ export default function POSPage() {
                         setLastTransaction(result)
                         clearCart()
                         setShowSuccess(true)
+                        toast.success('Payment processed successfully!')
                         
                       } catch (err) {
                         console.error('Payment failed:', err)
-                        alert('Payment failed. Please try again.')
+                        toast.error('Payment failed. Please try again.')
                       }
                     }}
                     disabled={transactionLoading}
@@ -725,7 +727,7 @@ export default function POSPage() {
                         await printReceiptForTransaction(lastTransaction.id)
                       } catch (err) {
                         console.error('Failed to print receipt:', err)
-                        alert('Failed to print receipt')
+                        toast.error('Failed to print receipt')
                       }
                     }}
                     disabled={receiptLoading}
@@ -741,7 +743,7 @@ export default function POSPage() {
                           await downloadReceiptForTransaction(lastTransaction.id)
                         } catch (err) {
                           console.error('Failed to download receipt:', err)
-                          alert('Failed to download receipt')
+                          toast.error('Failed to download receipt')
                         }
                       }}
                       disabled={receiptLoading}

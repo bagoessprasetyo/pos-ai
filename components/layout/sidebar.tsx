@@ -123,10 +123,11 @@ const navItems = [
 
 interface SidebarProps {
   open: boolean
+  collapsed?: boolean
   onClose: () => void
 }
 
-export function Sidebar({ open, onClose }: SidebarProps) {
+export function Sidebar({ open, collapsed = false, onClose }: SidebarProps) {
   const pathname = usePathname()
   const { permissions } = usePermissions()
 
@@ -142,9 +143,11 @@ export function Sidebar({ open, onClose }: SidebarProps) {
       
       {/* Sidebar */}
       <aside className={cn(
-        "fixed left-0 top-0 z-50 h-screen w-64 transform bg-background border-r border-border transition-transform duration-200 ease-in-out",
-        // Desktop: always visible, Mobile: controlled by open state
+        "fixed left-0 top-0 z-50 h-screen transform bg-background border-r border-border transition-all duration-200 ease-in-out",
+        // Desktop: respects collapsed state, Mobile: controlled by open state
         "md:translate-x-0",
+        collapsed ? "md:w-16" : "md:w-64",
+        collapsed ? "w-16" : "w-64",
         open ? "translate-x-0" : "-translate-x-full md:translate-x-0"
       )}>
         <div className="flex h-full flex-col">
@@ -154,7 +157,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                 <Store className="h-4 w-4" />
               </div>
-              <span className="font-bold">POS AI</span>
+              {!collapsed && <span className="font-bold">POS AI</span>}
             </Link>
             <Button
               variant="ghost"
@@ -187,6 +190,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                       href={item.href}
                       className={cn(
                         "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                        collapsed && "justify-center",
                         isActive 
                           ? "bg-primary text-primary-foreground" 
                           : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
@@ -197,13 +201,14 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                           onClose()
                         }
                       }}
+                      title={collapsed ? item.name : undefined}
                     >
                       <Icon className="h-4 w-4" />
-                      {item.name}
+                      {!collapsed && item.name}
                     </Link>
                     
                     {/* Sub-navigation */}
-                    {item.children && isActive && (
+                    {item.children && isActive && !collapsed && (
                       <ul className="ml-6 mt-2 space-y-1">
                         {item.children.map((child) => {
                           const childCanAccess = getRoutePermission(child.href, permissions)

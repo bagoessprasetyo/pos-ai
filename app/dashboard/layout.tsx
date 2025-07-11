@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Header } from '@/components/layout/header'
 import { Sidebar } from '@/components/layout/sidebar'
 import { MobileNav } from '@/components/layout/mobile-nav'
@@ -12,6 +12,22 @@ export default function DashboardLayout({
   children: React.ReactNode
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+
+  // Load sidebar state from localStorage on mount
+  useEffect(() => {
+    const savedState = localStorage.getItem('sidebar-collapsed')
+    if (savedState !== null) {
+      setSidebarCollapsed(JSON.parse(savedState))
+    }
+  }, [])
+
+  // Save sidebar state to localStorage
+  const toggleSidebar = () => {
+    const newState = !sidebarCollapsed
+    setSidebarCollapsed(newState)
+    localStorage.setItem('sidebar-collapsed', JSON.stringify(newState))
+  }
 
   return (
     <PermissionProvider>
@@ -19,13 +35,17 @@ export default function DashboardLayout({
         {/* Single Sidebar - handles both desktop and mobile */}
         <Sidebar 
           open={sidebarOpen} 
+          collapsed={sidebarCollapsed}
           onClose={() => setSidebarOpen(false)} 
         />
 
         {/* Main Content Area */}
-        <div className="flex flex-col md:pl-64">
+        <div className={`flex flex-col transition-all duration-200 ${
+          sidebarCollapsed ? 'md:pl-16' : 'md:pl-64'
+        }`}>
           <Header 
             onMenuClick={() => setSidebarOpen(true)}
+            onToggleSidebar={toggleSidebar}
             showMenuButton={true}
           />
           

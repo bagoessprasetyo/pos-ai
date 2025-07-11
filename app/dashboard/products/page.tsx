@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui/badge'
 import { formatPrice } from '@/utils/currency'
 import { ProductDialog } from '@/components/forms/product-dialog'
 import { BulkOperationsDialog } from '@/components/forms/bulk-operations-dialog'
+import { toast } from 'sonner'
 
 export default function ProductsPage() {
   const [searchQuery, setSearchQuery] = useState('')
@@ -26,7 +27,7 @@ export default function ProductsPage() {
   const [editingProduct, setEditingProduct] = useState<ProductWithCategory | null>(null)
   const [showBulkDialog, setShowBulkDialog] = useState(false)
   
-  const { products, loading, deleteProduct } = useProducts()
+  const { products, loading, deleteProduct, fetchProducts } = useProducts()
   const { categories } = useCategories()
 
   // Filter products based on search and category
@@ -45,9 +46,10 @@ export default function ProductsPage() {
     if (confirm('Are you sure you want to delete this product?')) {
       try {
         await deleteProduct(productId)
+        toast.success('Product deleted successfully')
       } catch (error) {
         console.error('Error deleting product:', error)
-        alert('Failed to delete product')
+        toast.error('Failed to delete product')
       }
     }
   }
@@ -209,6 +211,10 @@ export default function ProductsPage() {
           }
         }}
         product={editingProduct}
+        onSuccess={() => {
+          // Force refresh the products list
+          fetchProducts()
+        }}
       />
 
       {/* Bulk Operations Dialog */}

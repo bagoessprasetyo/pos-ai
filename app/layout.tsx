@@ -1,8 +1,9 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/auth-context";
 import { StoreProvider } from "@/contexts/store-context";
+import { Toaster } from "sonner";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -19,8 +20,14 @@ export const metadata: Metadata = {
   title: "POS AI - Mobile-First Point of Sale System",
   description: "A comprehensive mobile-first POS system for small to medium businesses",
   manifest: "/manifest.json",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
   themeColor: "#000000",
-  viewport: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0",
 };
 
 export default function RootLayout({
@@ -38,6 +45,12 @@ export default function RootLayout({
             {children}
           </StoreProvider>
         </AuthProvider>
+        <Toaster 
+          position="top-right" 
+          richColors 
+          closeButton 
+          duration={4000}
+        />
       </body>
     </html>
   );

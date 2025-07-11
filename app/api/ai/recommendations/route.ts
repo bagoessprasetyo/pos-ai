@@ -43,19 +43,47 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Verify user has access to this store
-    const { data: storeAccess, error: storeError } = await supabase
+    // Verify user has access to this store (either as owner or staff)
+    // First check if user is the owner
+    let { data: storeAccess, error: storeError } = await supabase
       .from('stores')
-      .select('id, name')
-      .or(`owner_id.eq.${user.id},store_staff.user_id.eq.${user.id}`)
+      .select('id, name, owner_id')
       .eq('id', store_id)
+      .eq('owner_id', user.id)
       .single()
 
+    // If not owner, check if user is staff
     if (storeError || !storeAccess) {
-      return NextResponse.json(
-        { error: 'Access denied to this store' },
-        { status: 403 }
-      )
+      const { data: staffAccess, error: staffError } = await supabase
+        .from('store_staff')
+        .select(`
+          store_id,
+          stores!inner(id, name)
+        `)
+        .eq('store_id', store_id)
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .single()
+
+      if (staffError || !staffAccess) {
+        console.log('Access denied - not owner or staff:', { 
+          userId: user.id, 
+          storeId: store_id,
+          ownerError: storeError,
+          staffError: staffError 
+        })
+        return NextResponse.json(
+          { error: 'Access denied to this store' },
+          { status: 403 }
+        )
+      }
+
+      // User is staff, use store info from the join
+      storeAccess = {
+        id: staffAccess.stores.id,
+        name: staffAccess.stores.name,
+        owner_id: null // Not needed for staff access
+      }
     }
 
     // Sanitize and truncate data for prompt efficiency
