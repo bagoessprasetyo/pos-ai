@@ -203,7 +203,7 @@ export function Sidebar({ open, collapsed = false, onClose }: SidebarProps) {
                       }}
                       title={collapsed ? item.name : undefined}
                     >
-                      <Icon className="h-4 w-4" />
+                      <Icon className="w-5 h-5" />
                       {!collapsed && item.name}
                     </Link>
                     

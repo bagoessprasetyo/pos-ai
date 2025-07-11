@@ -87,7 +87,7 @@ export function useAnalytics() {
 
       console.log('🔐 Using authenticated user from context:', {
         userId: user.id,
-        email: user.email || user.profile?.email
+        email: user.email || user.user_metadata?.email
       })
 
       // DEBUG: Test if user can access this store
