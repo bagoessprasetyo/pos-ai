@@ -80,8 +80,8 @@ export async function POST(request: NextRequest) {
 
       // User is staff, use store info from the join
       storeAccess = {
-        id: staffAccess.stores.id,
-        name: staffAccess.stores.name,
+        id: staffAccess.stores[0].id,
+        name: staffAccess.stores[0].name,
         owner_id: null // Not needed for staff access
       }
     }

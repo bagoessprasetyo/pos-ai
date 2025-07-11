@@ -26,20 +26,20 @@ export async function POST(request: NextRequest) {
     }
 
     // Prepare historical data for AI analysis
-    console.log('Historical data received:', { 
-      transactionCount: historical_data?.length || 0,
-      sampleData: historical_data?.slice(0, 2) 
-    })
+    // console.log('Historical data received:', { 
+    //   transactionCount: historical_data?.length || 0,
+    //   sampleData: historical_data?.slice(0, 2) 
+    // })
     
     const dailySales = aggregateDailySales(historical_data)
     const weeklyPatterns = analyzeWeeklyPatterns(historical_data)
     const monthlyTrends = analyzeMonthlyTrends(historical_data)
     
-    console.log('Aggregated data:', {
-      dailySalesCount: dailySales.length,
-      weeklyPatternsCount: weeklyPatterns.length,
-      monthlyTrendsCount: monthlyTrends.length
-    })
+    // console.log('Aggregated data:', {
+    //   dailySalesCount: dailySales.length,
+    //   weeklyPatternsCount: weeklyPatterns.length,
+    //   monthlyTrendsCount: monthlyTrends.length
+    // })
 
     // Check if we have sufficient data for forecasting
     if (dailySales.length === 0) {
