@@ -20,12 +20,7 @@ export function useTransactions() {
   const processTransaction = async (transactionData: PosTransaction) => {
     if (!currentStore) throw new Error('No store selected')
     
-    console.log('💳 Processing transaction for store:', currentStore.id, currentStore.name)
-    console.log('💰 Transaction data:', {
-      items: transactionData.items.length,
-      total: transactionData.total,
-      subtotal: transactionData.subtotal
-    })
+    // Process transaction for the current store
     
     setLoading(true)
     setError(null)
@@ -55,12 +50,7 @@ export function useTransactions() {
         .select()
         .single()
 
-      if (transactionError) {
-        console.error('❌ Transaction creation failed:', transactionError)
-        throw transactionError
-      }
-
-      console.log('✅ Transaction created:', transaction.id)
+      if (transactionError) throw transactionError
 
       // Add transaction items
       const transactionItems = transactionData.items.map(item => ({

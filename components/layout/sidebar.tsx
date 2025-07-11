@@ -11,11 +11,50 @@ import {
   Users,
   FileText,
   Store,
+  Building,
   Tags,
   X
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { usePermissions } from '@/contexts/permission-context'
+import type { PermissionChecker } from '@/lib/permissions'
+
+// Helper function to check route permissions
+function getRoutePermission(route: string, permissions: PermissionChecker): boolean {
+  // Dashboard is accessible to all authenticated users
+  if (route === '/dashboard') return true
+  
+  // Route-specific permission checks
+  switch (route) {
+    case '/dashboard/products':
+    case '/dashboard/products/categories':
+    case '/dashboard/products/inventory':
+    case '/dashboard/products/discounts':
+      return permissions.canRead('products')
+    
+    case '/dashboard/pos':
+      return permissions.canAccessPOS()
+    
+    case '/dashboard/transactions':
+      return permissions.canRead('transactions')
+    
+    case '/dashboard/analytics':
+      return permissions.canViewAnalytics()
+    
+    case '/dashboard/staff':
+      return permissions.canRead('staff')
+    
+    case '/dashboard/stores':
+      return permissions.canRead('stores')
+    
+    case '/dashboard/settings':
+      return permissions.canRead('settings')
+    
+    default:
+      return false
+  }
+}
 
 const navItems = [
   {
@@ -54,6 +93,16 @@ const navItems = [
   //   icon: Users,
   // },
   {
+    name: 'Stores',
+    href: '/dashboard/stores',
+    icon: Building,
+  },
+  {
+    name: 'Staff',
+    href: '/dashboard/staff',
+    icon: Users,
+  },
+  {
     name: 'Settings',
     href: '/dashboard/settings',
     icon: Settings,
@@ -70,6 +119,7 @@ interface SidebarProps {
 
 export function Sidebar({ open, onClose }: SidebarProps) {
   const pathname = usePathname()
+  const { permissions } = usePermissions()
 
   return (
     <>
@@ -115,6 +165,13 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                 const isActive = pathname === item.href || 
                   (item.href !== '/dashboard' && pathname.startsWith(item.href))
                 
+                // Check if user has permission to access this route
+                const canAccess = getRoutePermission(item.href, permissions)
+                
+                if (!canAccess) {
+                  return null
+                }
+                
                 return (
                   <li key={item.name}>
                     <Link
@@ -139,26 +196,34 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                     {/* Sub-navigation */}
                     {item.children && isActive && (
                       <ul className="ml-6 mt-2 space-y-1">
-                        {item.children.map((child) => (
-                          <li key={child.name}>
-                            <Link
-                              href={child.href}
-                              className={cn(
-                                "flex items-center gap-2 rounded-lg px-3 py-1 text-sm transition-colors",
-                                pathname === child.href
-                                  ? "bg-accent text-accent-foreground"
-                                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                              )}
-                              onClick={() => {
-                                if (window.innerWidth < 768) {
-                                  onClose()
-                                }
-                              }}
-                            >
-                              {child.name}
-                            </Link>
-                          </li>
-                        ))}
+                        {item.children.map((child) => {
+                          const childCanAccess = getRoutePermission(child.href, permissions)
+                          
+                          if (!childCanAccess) {
+                            return null
+                          }
+                          
+                          return (
+                            <li key={child.name}>
+                              <Link
+                                href={child.href}
+                                className={cn(
+                                  "flex items-center gap-2 rounded-lg px-3 py-1 text-sm transition-colors",
+                                  pathname === child.href
+                                    ? "bg-accent text-accent-foreground"
+                                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                                )}
+                                onClick={() => {
+                                  if (window.innerWidth < 768) {
+                                    onClose()
+                                  }
+                                }}
+                              >
+                                {child.name}
+                              </Link>
+                            </li>
+                          )
+                        })}
                       </ul>
                     )}
                   </li>

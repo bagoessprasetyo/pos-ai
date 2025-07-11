@@ -64,12 +64,7 @@ export function useAnalytics() {
       return
     }
 
-    console.log('🏪 Fetching analytics for store:', currentStore.id, currentStore.name)
-
-    // Get current user for debugging
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-    console.log('👤 Current user:', user?.id)
-    console.log('🔒 Store owner_id should match user for RLS access')
+    // Get analytics for the current store
 
     try {
       setLoading(true)
@@ -81,34 +76,7 @@ export function useAnalytics() {
       const startOfWeek = new Date(today.getTime() - (7 * 24 * 60 * 60 * 1000))
       const startOfMonth = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1))
       
-      console.log('📅 Date filters:', {
-        today: today.toISOString(),
-        startOfDay: startOfDay.toISOString(),
-        startOfWeek: startOfWeek.toISOString(),
-        startOfMonth: startOfMonth.toISOString()
-      })
-
-      // First, test basic access to transactions
-      console.log('🔍 Testing basic transaction access...')
-      const { data: allTransactions, error: basicError } = await supabase
-        .from('transactions')
-        .select('id, transaction_number, total, created_at')
-        .eq('store_id', currentStore.id)
-        .limit(5)
-
-      if (basicError) {
-        console.error('❌ BASIC ACCESS FAILED:', basicError)
-        console.log('This likely means RLS policy is blocking access')
-      } else {
-        console.log('✅ Basic access successful. Found transactions:', allTransactions?.length || 0)
-        if (allTransactions?.length) {
-          console.log('📊 Sample transactions:', allTransactions.map(t => ({
-            number: t.transaction_number,
-            total: t.total,
-            date: t.created_at
-          })))
-        }
-      }
+      // Calculate date ranges for analytics queries
       
       // Get today's data
       const { data: todayTransactions, error: todayError } = await supabase
@@ -125,15 +93,7 @@ export function useAnalytics() {
         .gte('created_at', startOfDay.toISOString())
         .order('created_at', { ascending: false })
 
-      if (todayError) {
-        console.error('❌ Error fetching today\'s transactions:', todayError)
-        throw todayError
-      }
-
-      console.log('📊 Today\'s transactions found:', todayTransactions?.length || 0)
-      if (todayTransactions?.length) {
-        console.log('📊 Sample today transaction:', todayTransactions[0])
-      }
+      if (todayError) throw todayError
 
       // Calculate today's metrics
       const todaysSales = todayTransactions?.reduce((sum, t) => sum + t.total, 0) || 0
@@ -143,12 +103,7 @@ export function useAnalytics() {
       ) || 0
       const avgTransactionValue = todaysTransactions > 0 ? todaysSales / todaysTransactions : 0
 
-      console.log('💰 Today\'s calculated metrics:', {
-        sales: todaysSales,
-        transactions: todaysTransactions,
-        itemsSold: todaysItemsSold,
-        avgValue: avgTransactionValue
-      })
+      // Today's metrics calculated
 
       // Get week and month data
       const { data: weekTransactions, error: weekError } = await supabase
@@ -157,8 +112,7 @@ export function useAnalytics() {
         .eq('store_id', currentStore.id)
         .gte('created_at', startOfWeek.toISOString())
 
-      if (weekError) console.error('❌ Week transactions error:', weekError)
-      console.log('📊 Week transactions found:', weekTransactions?.length || 0)
+      if (weekError) throw weekError
 
       const { data: monthTransactions, error: monthError } = await supabase
         .from('transactions')
@@ -166,17 +120,13 @@ export function useAnalytics() {
         .eq('store_id', currentStore.id)
         .gte('created_at', startOfMonth.toISOString())
 
-      if (monthError) console.error('❌ Month transactions error:', monthError)
-      console.log('📊 Month transactions found:', monthTransactions?.length || 0)
+      if (monthError) throw monthError
 
       const weekSales = weekTransactions?.reduce((sum, t) => sum + t.total, 0) || 0
       const monthSales = monthTransactions?.reduce((sum, t) => sum + t.total, 0) || 0
 
-      console.log('💰 Week/Month sales:', { weekSales, monthSales })
-
       // Get top products (last 30 days)
       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-      console.log('📦 Fetching top products since:', thirtyDaysAgo.toISOString())
       
       const { data: topProductsData, error: topProductsError } = await supabase
         .from('transaction_items')
@@ -195,8 +145,7 @@ export function useAnalytics() {
         .eq('transactions.store_id', currentStore.id)
         .gte('transactions.created_at', thirtyDaysAgo.toISOString())
 
-      if (topProductsError) console.error('❌ Top products query error:', topProductsError)
-      console.log('📦 Transaction items found:', topProductsData?.length || 0)
+      if (topProductsError) throw topProductsError
 
       // Aggregate top products
       const productMap = new Map()
@@ -333,7 +282,7 @@ export function useAnalytics() {
       })
 
     } catch (err) {
-      console.error('💥 Error fetching analytics:', err)
+      console.error('Error fetching analytics:', err)
       setError(err instanceof Error ? err.message : 'Failed to fetch analytics')
     } finally {
       setLoading(false)

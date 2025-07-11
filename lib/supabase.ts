@@ -97,6 +97,37 @@ export type Database = {
           updated_at?: string
         }
       }
+      store_staff: {
+        Row: {
+          id: string
+          store_id: string
+          user_id: string
+          role: 'owner' | 'manager' | 'cashier' | 'viewer'
+          permissions: any | null
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          store_id: string
+          user_id: string
+          role: 'owner' | 'manager' | 'cashier' | 'viewer'
+          permissions?: any | null
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          store_id?: string
+          user_id?: string
+          role?: 'owner' | 'manager' | 'cashier' | 'viewer'
+          permissions?: any | null
+          is_active?: boolean
+          updated_at?: string
+        }
+      }
       categories: {
         Row: {
           id: string

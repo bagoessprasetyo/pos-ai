@@ -6,6 +6,7 @@ export type { Database }
 // Database table types
 export type Profile = Database['public']['Tables']['profiles']['Row']
 export type Store = Database['public']['Tables']['stores']['Row']
+export type StoreStaff = Database['public']['Tables']['store_staff']['Row']
 export type Category = Database['public']['Tables']['categories']['Row']
 export type Product = Database['public']['Tables']['products']['Row']
 export type Transaction = Database['public']['Tables']['transactions']['Row']
@@ -13,6 +14,7 @@ export type Transaction = Database['public']['Tables']['transactions']['Row']
 // Insert types
 export type ProfileInsert = Database['public']['Tables']['profiles']['Insert']
 export type StoreInsert = Database['public']['Tables']['stores']['Insert']
+export type StoreStaffInsert = Database['public']['Tables']['store_staff']['Insert']
 export type CategoryInsert = Database['public']['Tables']['categories']['Insert']
 export type ProductInsert = Database['public']['Tables']['products']['Insert']
 export type TransactionInsert = Database['public']['Tables']['transactions']['Insert']
@@ -20,6 +22,7 @@ export type TransactionInsert = Database['public']['Tables']['transactions']['In
 // Update types
 export type ProfileUpdate = Database['public']['Tables']['profiles']['Update']
 export type StoreUpdate = Database['public']['Tables']['stores']['Update']
+export type StoreStaffUpdate = Database['public']['Tables']['store_staff']['Update']
 export type CategoryUpdate = Database['public']['Tables']['categories']['Update']
 export type ProductUpdate = Database['public']['Tables']['products']['Update']
 export type TransactionUpdate = Database['public']['Tables']['transactions']['Update']
@@ -54,6 +57,28 @@ export interface TransactionWithItems extends Transaction {
     amount: number
     reference?: string
   }>
+}
+
+// Staff member with profile information
+export interface StaffMember extends StoreStaff {
+  profile: Profile
+  stores?: Store[]
+}
+
+export interface StaffMemberWithProfile {
+  id: string
+  store_id: string
+  user_id: string
+  role: 'owner' | 'manager' | 'cashier' | 'viewer'
+  permissions: any | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
+  email: string
+  full_name: string | null
+  phone: string | null
+  avatar_url: string | null
+  hourly_rate?: number
 }
 
 // Form types
