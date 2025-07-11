@@ -13,7 +13,8 @@ import {
   Store,
   Building,
   Tags,
-  X
+  X,
+  Brain
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -40,6 +41,9 @@ function getRoutePermission(route: string, permissions: PermissionChecker): bool
       return permissions.canRead('transactions')
     
     case '/dashboard/analytics':
+      return permissions.canViewAnalytics()
+    
+    case '/dashboard/forecasting':
       return permissions.canViewAnalytics()
     
     case '/dashboard/staff':
@@ -69,7 +73,7 @@ const navItems = [
     children: [
       { name: 'All Products', href: '/dashboard/products' },
       { name: 'Categories', href: '/dashboard/products/categories' },
-      // { name: 'Discounts', href: '/dashboard/products/discounts' },
+      { name: 'Discounts', href: '/dashboard/products/discounts' },
     ]
   },
   {
@@ -86,6 +90,11 @@ const navItems = [
     name: 'Analytics',
     href: '/dashboard/analytics',
     icon: BarChart3,
+  },
+  {
+    name: 'AI Forecasting',
+    href: '/dashboard/forecasting',
+    icon: Brain,
   },
   // {
   //   name: 'Customers',

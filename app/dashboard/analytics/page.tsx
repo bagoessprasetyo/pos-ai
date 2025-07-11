@@ -7,6 +7,9 @@ import { KPICards } from '@/components/analytics/kpi-cards'
 import { SalesChart, TransactionChart } from '@/components/analytics/sales-chart'
 import { TopProducts, CategoryPerformance } from '@/components/analytics/top-products'
 import { RecentTransactions } from '@/components/analytics/recent-transactions'
+import { BusinessInsights } from '@/components/ai/business-insights'
+import { ForecastChart } from '@/components/ai/forecast-chart'
+import { ForecastAlerts } from '@/components/ai/forecast-alerts'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { 
@@ -128,6 +131,19 @@ export default function AnalyticsPage() {
             <TopProducts topProducts={analytics.topProducts} />
             <CategoryPerformance categoryPerformance={analytics.categoryPerformance} />
             <RecentTransactions recentTransactions={analytics.recentTransactions} />
+          </div>
+
+          {/* AI Business Insights */}
+          <BusinessInsights />
+
+          {/* AI Forecasting */}
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+            <div className="xl:col-span-2">
+              <ForecastChart />
+            </div>
+            <div className="xl:col-span-1">
+              <ForecastAlerts showHeader={false} maxAlerts={5} />
+            </div>
           </div>
 
           {/* Quick Insights */}

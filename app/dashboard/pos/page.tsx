@@ -6,6 +6,7 @@ import { useCategories } from '@/hooks/use-categories'
 import { useDiscounts } from '@/hooks/use-discounts'
 import { useTransactions } from '@/hooks/use-transactions'
 import { useReceipt } from '@/hooks/use-receipt'
+import { RecommendationWidget } from '@/components/ai/recommendation-widget'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -505,6 +506,27 @@ export default function POSPage() {
                     </div>
                   </Card>
                 ))}
+                
+                {/* AI Recommendation Widget */}
+                <div className="mt-4">
+                  <RecommendationWidget
+                    cartItems={cart.map(item => ({
+                      id: item.product.id,
+                      name: item.product.name,
+                      category: (item.product as any).category?.name,
+                      price: item.unit_price,
+                      quantity: item.quantity
+                    }))}
+                    onAddToCart={(productId, productName) => {
+                      // Find the product in our products list and add it
+                      const product = products.find(p => p.id === productId)
+                      if (product) {
+                        addToCartWithRecent(product)
+                      }
+                    }}
+                    compact={true}
+                  />
+                </div>
               </div>
             )}
           </div>
@@ -851,6 +873,27 @@ export default function POSPage() {
                       </div>
                     </Card>
                   ))}
+                  
+                  {/* AI Recommendation Widget */}
+                  <div className="mt-4">
+                    <RecommendationWidget
+                      cartItems={cart.map(item => ({
+                        id: item.product.id,
+                        name: item.product.name,
+                        category: (item.product as any).category?.name,
+                        price: item.unit_price,
+                        quantity: item.quantity
+                      }))}
+                      onAddToCart={(productId, productName) => {
+                        // Find the product in our products list and add it
+                        const product = products.find(p => p.id === productId)
+                        if (product) {
+                          addToCartWithRecent(product)
+                        }
+                      }}
+                      compact={true}
+                    />
+                  </div>
                 </div>
               )}
             </div>
