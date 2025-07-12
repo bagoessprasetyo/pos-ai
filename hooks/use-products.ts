@@ -1,8 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useStore } from '@/contexts/store-context'
+import { errorHandler, withRetry } from '@/lib/error-handler'
+import { cache, generateCacheKey } from '@/lib/cache'
+import { useDebouncedCallback } from '@/lib/performance'
 import type { Product, ProductWithCategory, ProductFormData } from '@/types'
 
 export function useProducts() {
@@ -12,15 +15,31 @@ export function useProducts() {
   const { currentStore } = useStore()
   const supabase = createClient()
 
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     if (!currentStore) {
       setProducts([])
       setLoading(false)
       return
     }
 
+    const cacheKey = generateCacheKey('products', currentStore.id)
+
     try {
       setLoading(true)
+      
+      // Try cache first
+      const cachedProducts = await cache.get<ProductWithCategory[]>(cacheKey, {
+        ttl: 5 * 60 * 1000, // 5 minutes cache
+        storage: 'localStorage'
+      })
+
+      if (cachedProducts) {
+        setProducts(cachedProducts)
+        setLoading(false)
+        setError(null)
+        return
+      }
+
       console.log('Fetching products for store:', currentStore.id)
       
       const { data, error } = await supabase
@@ -36,15 +55,27 @@ export function useProducts() {
       if (error) throw error
       
       console.log('Fetched products:', data?.length || 0, 'products')
-      setProducts(data || [])
+      const products = data || []
+      setProducts(products)
       setError(null)
+
+      // Cache the result
+      await cache.set(cacheKey, products, {
+        ttl: 5 * 60 * 1000, // 5 minutes cache
+        storage: 'localStorage'
+      })
     } catch (err) {
-      console.error('Error fetching products:', err)
-      setError(err instanceof Error ? err.message : 'Failed to fetch products')
+      const error = err instanceof Error ? err : new Error('Failed to fetch products')
+      errorHandler.logError(error, {
+        storeId: currentStore?.id,
+        action: 'fetch_products',
+        component: 'use-products'
+      })
+      setError(error.message)
     } finally {
       setLoading(false)
     }
-  }
+  }, [currentStore, supabase])
 
   const createProduct = async (productData: ProductFormData) => {
     if (!currentStore) throw new Error('No store selected')
@@ -66,7 +97,12 @@ export function useProducts() {
     }
     
     console.log('Product created successfully:', data)
-    await fetchProducts() // Refresh the list
+    
+    // Invalidate cache and refresh
+    const cacheKey = generateCacheKey('products', currentStore.id)
+    await cache.delete(cacheKey)
+    await fetchProducts()
+    
     return data
   }
 
@@ -82,7 +118,12 @@ export function useProducts() {
       .single()
 
     if (error) throw error
-    await fetchProducts() // Refresh the list
+    
+    // Invalidate cache and refresh
+    const cacheKey = generateCacheKey('products', currentStore!.id)
+    await cache.delete(cacheKey)
+    await fetchProducts()
+    
     return data
   }
 
@@ -97,7 +138,11 @@ export function useProducts() {
       .eq('id', id)
 
     if (error) throw error
-    await fetchProducts() // Refresh the list
+    
+    // Invalidate cache and refresh
+    const cacheKey = generateCacheKey('products', currentStore!.id)
+    await cache.delete(cacheKey)
+    await fetchProducts()
   }
 
   const searchProducts = async (query: string) => {

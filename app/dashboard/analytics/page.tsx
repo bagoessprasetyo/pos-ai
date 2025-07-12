@@ -8,8 +8,11 @@ import { SalesChart, TransactionChart } from '@/components/analytics/sales-chart
 import { TopProducts, CategoryPerformance } from '@/components/analytics/top-products'
 import { RecentTransactions } from '@/components/analytics/recent-transactions'
 import { BusinessInsights } from '@/components/ai/business-insights'
+import { useStoreSettings } from '@/hooks/use-store-settings'
 import { ForecastChart } from '@/components/ai/forecast-chart'
 import { ForecastAlerts } from '@/components/ai/forecast-alerts'
+import { PageErrorBoundary, ComponentErrorBoundary } from '@/components/error-boundary'
+import { AnalyticsLoading, KPICardsSkeleton, ChartSkeleton } from '@/components/ui/loading'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { 
@@ -21,22 +24,14 @@ import {
   TrendingUp,
   AlertCircle
 } from 'lucide-react'
+import { formatPrice } from '@/utils/currency'
 
 export default function AnalyticsPage() {
   const { analytics, loading, error, refetch } = useAnalytics()
   const { currentStore, stores, loading: storeLoading } = useStore()
+  const { currency, locale } = useStoreSettings()
   const [refreshing, setRefreshing] = useState(false)
-  const [debugInfo, setDebugInfo] = useState<any>(null)
 
-  useEffect(() => {
-    console.log('📊 Analytics Page State:', {
-      currentStore: currentStore ? { id: currentStore.id, name: currentStore.name } : null,
-      storesCount: stores.length,
-      analyticsLoading: loading,
-      storeLoading,
-      error
-    })
-  }, [currentStore, stores, loading, storeLoading, error])
 
   const handleRefresh = async () => {
     setRefreshing(true)
@@ -45,14 +40,7 @@ export default function AnalyticsPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <BarChart3 className="mx-auto h-12 w-12 text-muted-foreground mb-4 animate-pulse" />
-          <p>Loading analytics...</p>
-        </div>
-      </div>
-    )
+    return <AnalyticsLoading />
   }
 
   if (error) {
@@ -78,7 +66,8 @@ export default function AnalyticsPage() {
   }
 
   return (
-    <div className="h-full flex flex-col bg-background">
+    <PageErrorBoundary>
+      <div className="h-full flex flex-col bg-background">
       {/* Header */}
       <div className="border-b p-4 md:p-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -118,31 +107,49 @@ export default function AnalyticsPage() {
       <div className="flex-1 overflow-auto p-4 md:p-6">
         <div className="space-y-6">
           {/* KPI Cards */}
-          <KPICards analytics={analytics} />
+          <ComponentErrorBoundary componentName="KPI Cards">
+            <KPICards analytics={analytics} />
+          </ComponentErrorBoundary>
 
           {/* Charts Section */}
           <div className="grid grid-cols-1 lg:grid-cols-6 gap-6">
-            <SalesChart data={analytics.salesTrend} />
-            <TransactionChart data={analytics.salesTrend} />
+            <ComponentErrorBoundary componentName="Sales Chart">
+              <SalesChart data={analytics.salesTrend} />
+            </ComponentErrorBoundary>
+            <ComponentErrorBoundary componentName="Transaction Chart">
+              <TransactionChart data={analytics.salesTrend} />
+            </ComponentErrorBoundary>
           </div>
 
           {/* Performance Section */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
-            <TopProducts topProducts={analytics.topProducts} />
-            <CategoryPerformance categoryPerformance={analytics.categoryPerformance} />
-            <RecentTransactions recentTransactions={analytics.recentTransactions} />
+            <ComponentErrorBoundary componentName="Top Products">
+              <TopProducts topProducts={analytics.topProducts} />
+            </ComponentErrorBoundary>
+            <ComponentErrorBoundary componentName="Category Performance">
+              <CategoryPerformance categoryPerformance={analytics.categoryPerformance} />
+            </ComponentErrorBoundary>
+            <ComponentErrorBoundary componentName="Recent Transactions">
+              <RecentTransactions recentTransactions={analytics.recentTransactions} />
+            </ComponentErrorBoundary>
           </div>
 
           {/* AI Business Insights */}
-          <BusinessInsights />
+          <ComponentErrorBoundary componentName="Business Insights">
+            <BusinessInsights />
+          </ComponentErrorBoundary>
 
           {/* AI Forecasting */}
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
             <div className="xl:col-span-2">
-              <ForecastChart />
+              <ComponentErrorBoundary componentName="Forecast Chart">
+                <ForecastChart />
+              </ComponentErrorBoundary>
             </div>
             <div className="xl:col-span-1">
-              <ForecastAlerts showHeader={false} maxAlerts={5} />
+              <ComponentErrorBoundary componentName="Forecast Alerts">
+                <ForecastAlerts showHeader={false} maxAlerts={5} />
+              </ComponentErrorBoundary>
             </div>
           </div>
 
@@ -170,7 +177,7 @@ export default function AnalyticsPage() {
                   </div>
                   <div className="text-xs text-blue-600 dark:text-blue-300">
                     {analytics.salesTrend.length > 0 
-                      ? formatPrice(Math.max(...analytics.salesTrend.map(d => d.sales)))
+                      ? formatPrice(Math.max(...analytics.salesTrend.map(d => d.sales)), { currency, locale })
                       : 'N/A'
                     }
                   </div>
@@ -211,12 +218,6 @@ export default function AnalyticsPage() {
         </div>
       </div>
     </div>
+    </PageErrorBoundary>
   )
-}
-
-function formatPrice(amount: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD'
-  }).format(amount)
 }

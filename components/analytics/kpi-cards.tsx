@@ -2,6 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatPrice } from '@/utils/currency'
+import { useStoreSettings } from '@/hooks/use-store-settings'
 import { 
   DollarSign, 
   ShoppingCart, 
@@ -19,57 +20,68 @@ interface KPICardsProps {
     avgTransactionValue: number
     weekSales: number
     monthSales: number
+    trends?: {
+      sales: { trend: string; trendUp: boolean }
+      transactions: { trend: string; trendUp: boolean }
+      itemsSold: { trend: string; trendUp: boolean }
+      avgValue: { trend: string; trendUp: boolean }
+      week: { trend: string; trendUp: boolean }
+      month: { trend: string; trendUp: boolean }
+    }
   }
 }
 
 export function KPICards({ analytics }: KPICardsProps) {
+  const { trends } = analytics
+  const { currency, locale } = useStoreSettings()
+  
   const kpis = [
     {
       title: "Today's Sales",
-      value: formatPrice(analytics.todaysSales),
+      value: formatPrice(analytics.todaysSales, { currency, locale }),
       icon: DollarSign,
-      trend: "+12.5%",
-      trendUp: true,
+      trend: trends?.sales.trend || "0%",
+      trendUp: trends?.sales.trendUp ?? true,
       description: "vs yesterday"
     },
     {
       title: "Transactions",
       value: analytics.todaysTransactions.toString(),
       icon: ShoppingCart,
-      trend: "+8.2%",
-      trendUp: true,
+      trend: trends?.transactions.trend || "0%",
+      trendUp: trends?.transactions.trendUp ?? true,
       description: "today"
     },
     {
       title: "Items Sold",
       value: analytics.todaysItemsSold.toString(),
       icon: Package,
-      trend: "+15.3%",
-      trendUp: true,
+      trend: trends?.itemsSold.trend || "0%",
+      trendUp: trends?.itemsSold.trendUp ?? true,
       description: "today"
     },
     {
       title: "Avg. Transaction",
-      value: formatPrice(analytics.avgTransactionValue),
+      value: formatPrice(analytics.avgTransactionValue, { currency, locale }),
       icon: TrendingUp,
-      trend: "+4.1%",
-      trendUp: true,
+      trend: trends?.avgValue.trend || "0%",
+      trendUp: trends?.avgValue.trendUp ?? true,
       description: "per sale"
     },
     {
       title: "Week Sales",
-      value: formatPrice(analytics.weekSales),
+      value: formatPrice(analytics.weekSales, { currency, locale }),
       icon: Calendar,
-      trend: "+18.7%",
-      trendUp: true,
+      trend: trends?.week.trend || "0%",
+      trendUp: trends?.week.trendUp ?? true,
       description: "last 7 days"
     },
     {
       title: "Month Sales",
-      value: formatPrice(analytics.monthSales),
+      value: formatPrice(analytics.monthSales, { currency, locale }),
       icon: CalendarDays,
-      trend: "+22.4%",
-      trendUp: true,
+      trend: trends?.month.trend || "0%",
+      trendUp: trends?.month.trendUp ?? true,
       description: "last 30 days"
     }
   ]

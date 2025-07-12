@@ -2,9 +2,18 @@
 
 export function formatPrice(
   amount: number, 
-  currency: string = 'USD',
-  locale: string = 'en-US'
+  options?: {
+    currency?: string
+    locale?: string
+  }
 ): string {
+  // Get default currency and locale from environment or fallback
+  const defaultCurrency = process.env.NEXT_PUBLIC_DEFAULT_CURRENCY || 'USD'
+  const defaultLocale = process.env.NEXT_PUBLIC_DEFAULT_LOCALE || 'en-US'
+  
+  const currency = options?.currency || defaultCurrency
+  const locale = options?.locale || defaultLocale
+
   return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency: currency,
@@ -28,7 +37,7 @@ export function formatPriceCompact(
     }).format(amount)
   }
   
-  return formatPrice(amount, currency, locale)
+  return formatPrice(amount, { currency, locale })
 }
 
 export function parsePrice(priceString: string): number {

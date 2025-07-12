@@ -1,7 +1,29 @@
 import type { Database } from '@/lib/supabase'
+import type { 
+  ProductData, 
+  CategoryData, 
+  StoreData, 
+  TransactionData, 
+  CustomerData, 
+  StaffData,
+  PaymentData,
+  DiscountData 
+} from '@/utils/validation'
 
 // Re-export Database type
 export type { Database }
+
+// Re-export validation types for better integration
+export type {
+  ProductData,
+  CategoryData,
+  StoreData,
+  TransactionData,
+  CustomerData,
+  StaffData,
+  PaymentData,
+  DiscountData
+} from '@/utils/validation'
 
 // Database table types
 export type Profile = Database['public']['Tables']['profiles']['Row']
@@ -99,10 +121,13 @@ export interface ProductFormData {
   }
   tags?: string[]
   images?: string[]
-  is_active: boolean
-  is_featured: boolean
-  tax_exempt: boolean
-  track_inventory: boolean
+  is_active?: boolean
+  is_featured?: boolean
+  tax_exempt?: boolean
+  track_inventory?: boolean
+  min_stock_level?: number
+  max_stock_level?: number
+  reorder_point?: number
 }
 
 export interface CategoryFormData {
@@ -110,8 +135,8 @@ export interface CategoryFormData {
   description?: string
   parent_id?: string
   image_url?: string
-  sort_order: number
-  is_active: boolean
+  sort_order?: number
+  is_active?: boolean
 }
 
 export interface StoreFormData {
@@ -268,3 +293,324 @@ export interface AppliedDiscount {
   applied_to: 'transaction' | 'item'
   item_ids?: string[]
 }
+
+// API Response types
+export interface ApiResponse<T = any> {
+  success: boolean
+  data?: T
+  error?: string
+  errors?: string[]
+  message?: string
+}
+
+export interface PaginatedResponse<T = any> {
+  success: boolean
+  data: T[]
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+    hasNext: boolean
+    hasPrev: boolean
+  }
+  error?: string
+}
+
+// Validation-aware types
+export interface ValidatedData<T> {
+  data: T
+  isValid: boolean
+  errors: Record<string, string[]>
+}
+
+export interface FormState<T> {
+  data: T
+  errors: Record<string, string>
+  isDirty: boolean
+  isValid: boolean
+  isSubmitting: boolean
+  touchedFields: Set<keyof T>
+}
+
+// Enhanced Product types with validation
+export interface ProductWithValidation extends ProductData {
+  id?: string
+  created_at?: string
+  updated_at?: string
+  store_id?: string
+}
+
+export interface CategoryWithValidation extends CategoryData {
+  id?: string
+  created_at?: string
+  updated_at?: string
+  store_id?: string
+}
+
+// Inventory types
+export interface InventoryItem {
+  id: string
+  product_id: string
+  store_id: string
+  quantity_on_hand: number
+  quantity_reserved: number
+  quantity_available: number
+  reorder_point: number
+  max_stock_level: number
+  last_counted_at: string | null
+  cost_per_unit: number | null
+  created_at: string
+  updated_at: string
+}
+
+export interface InventoryMovement {
+  id: string
+  product_id: string
+  store_id: string
+  movement_type: 'in' | 'out' | 'adjustment' | 'transfer'
+  quantity: number
+  reference_type: 'purchase' | 'sale' | 'adjustment' | 'transfer' | 'damage' | 'expired'
+  reference_id: string | null
+  notes: string | null
+  performed_by: string
+  performed_at: string
+}
+
+// Enhanced Customer types
+export interface Customer {
+  id: string
+  store_id: string
+  first_name: string
+  last_name: string
+  email: string | null
+  phone: string | null
+  address: {
+    street?: string
+    city?: string
+    state?: string
+    postal_code?: string
+    country?: string
+  } | null
+  date_of_birth: string | null
+  notes: string | null
+  tags: string[]
+  is_active: boolean
+  loyalty_points: number
+  total_spent: number
+  visit_count: number
+  last_visit: string | null
+  created_at: string
+  updated_at: string
+}
+
+// Permission types
+export interface Permission {
+  action: string
+  resource: string
+  conditions?: Record<string, any>
+}
+
+export interface Role {
+  id: string
+  name: string
+  description: string
+  permissions: Permission[]
+  is_system: boolean
+  created_at: string
+  updated_at: string
+}
+
+// Search and filter types
+export interface SearchFilters {
+  query?: string
+  category_id?: string
+  price_min?: number
+  price_max?: number
+  is_active?: boolean
+  is_featured?: boolean
+  has_inventory?: boolean
+  tags?: string[]
+  date_from?: string
+  date_to?: string
+}
+
+export interface SortOptions {
+  field: string
+  direction: 'asc' | 'desc'
+}
+
+// Upload types
+export interface FileUpload {
+  file: File
+  progress: number
+  status: 'pending' | 'uploading' | 'completed' | 'error'
+  url?: string
+  error?: string
+}
+
+// Notification types
+export interface Notification {
+  id: string
+  type: 'info' | 'success' | 'warning' | 'error'
+  title: string
+  message: string
+  timestamp: string
+  read: boolean
+  actions?: Array<{
+    label: string
+    action: () => void
+  }>
+}
+
+// Analytics types
+export interface AnalyticsDateRange {
+  start: string
+  end: string
+  preset?: 'today' | 'yesterday' | 'week' | 'month' | 'quarter' | 'year' | 'custom'
+}
+
+export interface SalesTrend {
+  date: string
+  sales: number
+  transactions: number
+  customers: number
+  items_sold: number
+}
+
+export interface ProductPerformance {
+  product_id: string
+  product_name: string
+  quantity_sold: number
+  revenue: number
+  profit: number
+  growth_rate: number
+}
+
+export interface CategoryPerformance {
+  category_id: string
+  category_name: string
+  product_count: number
+  revenue: number
+  percentage_of_total: number
+}
+
+// Utility types for better type safety
+export type NonEmptyArray<T> = [T, ...T[]]
+
+export type StrictPick<T, K extends keyof T> = {
+  [P in K]: T[P]
+}
+
+export type OptionalExcept<T, K extends keyof T> = Partial<T> & Pick<T, K>
+
+export type DeepPartial<T> = {
+  [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P]
+}
+
+export type DeepRequired<T> = {
+  [P in keyof T]-?: T[P] extends object ? DeepRequired<T[P]> : T[P]
+}
+
+// Database operation types
+export type DatabaseInsert<T> = Omit<T, 'id' | 'created_at' | 'updated_at'>
+export type DatabaseUpdate<T> = Partial<DatabaseInsert<T>>
+
+// Hook return types for better consistency
+export interface UseAsyncState<T> {
+  data: T | null
+  loading: boolean
+  error: string | null
+  refetch: () => Promise<void>
+  reset: () => void
+}
+
+export interface UseFormReturn<T> {
+  data: T
+  errors: Record<keyof T, string>
+  isDirty: boolean
+  isValid: boolean
+  isSubmitting: boolean
+  handleChange: (field: keyof T, value: any) => void
+  handleSubmit: (onSubmit: (data: T) => Promise<void> | void) => Promise<void>
+  reset: (data?: T) => void
+  validate: () => boolean
+  validateField: (field: keyof T) => boolean
+}
+
+// Export utility types for validation
+export type ValidationResult<T> = {
+  success: true
+  data: T
+} | {
+  success: false
+  errors: string[]
+}
+
+// Enhanced Cart types with validation
+export interface ValidatedCartItem extends CartItem {
+  validation: {
+    isValid: boolean
+    errors: string[]
+  }
+}
+
+export interface CartSummary {
+  items: CartItem[]
+  subtotal: number
+  tax_amount: number
+  discount_amount: number
+  tip_amount: number
+  total: number
+  item_count: number
+  unique_items: number
+}
+
+// Event types for better event handling
+export interface StoreEvent {
+  type: 'product_updated' | 'inventory_changed' | 'transaction_completed' | 'user_login'
+  payload: any
+  timestamp: string
+  source: string
+}
+
+// Configuration types
+export interface AppConfig {
+  features: {
+    inventory_tracking: boolean
+    loyalty_program: boolean
+    multi_currency: boolean
+    analytics: boolean
+    ai_insights: boolean
+  }
+  limits: {
+    max_products: number
+    max_categories: number
+    max_staff: number
+    max_file_size: number
+  }
+  integrations: {
+    payment_gateways: string[]
+    accounting_software: string[]
+    shipping_providers: string[]
+  }
+}
+
+// Error types for better error handling
+export interface AppError {
+  code: string
+  message: string
+  details?: any
+  timestamp: string
+  context?: Record<string, any>
+}
+
+export type ErrorCode = 
+  | 'VALIDATION_ERROR'
+  | 'NETWORK_ERROR'
+  | 'AUTH_ERROR'
+  | 'PERMISSION_ERROR'
+  | 'NOT_FOUND'
+  | 'SERVER_ERROR'
+  | 'RATE_LIMIT_ERROR'
+  | 'UNKNOWN_ERROR'

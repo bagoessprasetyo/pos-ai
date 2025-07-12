@@ -5,7 +5,8 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useProducts } from '@/hooks/use-products'
 import { useCategories } from '@/hooks/use-categories'
-import { productSchema } from '@/utils/validation'
+import { useValidation, useAsyncValidation } from '@/hooks/use-validation'
+import { productSchema, validateSKU, validateBarcode } from '@/utils/validation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -21,7 +22,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { ImageUpload } from '@/components/ui/image-upload'
 import { ProductImageStorage } from '@/lib/supabase/storage'
 import { useStore } from '@/contexts/store-context'
-import type { Product, ProductFormData } from '@/types'
+import type { Product } from '@/types'
 import { z } from 'zod'
 import { toast } from 'sonner'
 
@@ -49,7 +50,7 @@ export function ProductDialog({ open, onOpenChange, product, onSuccess }: Produc
     reset,
     setValue,
     watch,
-  } = useForm<FormData>({
+  } = useForm({
     resolver: zodResolver(productSchema),
     defaultValues: {
       name: '',
@@ -60,10 +61,6 @@ export function ProductDialog({ open, onOpenChange, product, onSuccess }: Produc
       cost: 0,
       category_id: '',
       weight: 0,
-      is_active: true,
-      is_featured: false,
-      tax_exempt: false,
-      track_inventory: true,
     },
   })
 
@@ -96,17 +93,13 @@ export function ProductDialog({ open, onOpenChange, product, onSuccess }: Produc
         cost: 0,
         category_id: '',
         weight: 0,
-        is_active: true,
-        is_featured: false,
-        tax_exempt: false,
-        track_inventory: true,
       })
       // Clear product images
       setProductImages([])
     }
   }, [product, reset])
 
-  const onSubmit = async (data: FormData) => {
+  const onSubmit = async (data: any) => {
     setLoading(true)
     setError('')
 
@@ -296,7 +289,7 @@ export function ProductDialog({ open, onOpenChange, product, onSuccess }: Produc
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="is_active"
-                checked={watch('is_active')}
+                checked={watch('is_active') ?? true}
                 onCheckedChange={(checked) => setValue('is_active', !!checked)}
               />
               <Label htmlFor="is_active">Active (visible in POS)</Label>
@@ -305,7 +298,7 @@ export function ProductDialog({ open, onOpenChange, product, onSuccess }: Produc
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="is_featured"
-                checked={watch('is_featured')}
+                checked={watch('is_featured') ?? false}
                 onCheckedChange={(checked) => setValue('is_featured', !!checked)}
               />
               <Label htmlFor="is_featured">Featured product</Label>
@@ -314,7 +307,7 @@ export function ProductDialog({ open, onOpenChange, product, onSuccess }: Produc
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="track_inventory"
-                checked={watch('track_inventory')}
+                checked={watch('track_inventory') ?? true}
                 onCheckedChange={(checked) => setValue('track_inventory', !!checked)}
               />
               <Label htmlFor="track_inventory">Track inventory</Label>
@@ -323,7 +316,7 @@ export function ProductDialog({ open, onOpenChange, product, onSuccess }: Produc
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="tax_exempt"
-                checked={watch('tax_exempt')}
+                checked={watch('tax_exempt') ?? false}
                 onCheckedChange={(checked) => setValue('tax_exempt', !!checked)}
               />
               <Label htmlFor="tax_exempt">Tax exempt</Label>

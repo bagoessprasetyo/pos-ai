@@ -9,6 +9,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { GoogleAuthButton } from '@/components/auth/google-auth-button'
+import { Separator } from '@/components/ui/separator'
 import { Store } from 'lucide-react'
 
 export default function SignUpPage() {
@@ -92,6 +94,24 @@ export default function SignUpPage() {
           </p>
         </CardHeader>
         <CardContent>
+          {/* Google Sign Up */}
+          <div className="space-y-4">
+            <GoogleAuthButton>
+              Continue with Google
+            </GoogleAuthButton>
+            
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <Separator className="w-full" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">
+                  Or continue with email
+                </span>
+              </div>
+            </div>
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
               <Alert variant="destructive">

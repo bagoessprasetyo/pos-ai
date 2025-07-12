@@ -1,12 +1,16 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useProducts } from '@/hooks/use-products'
 import { useCategories } from '@/hooks/use-categories'
 import { useDiscounts } from '@/hooks/use-discounts'
 import { useTransactions } from '@/hooks/use-transactions'
 import { useReceipt } from '@/hooks/use-receipt'
 import { RecommendationWidget } from '@/components/ai/recommendation-widget'
+import { PageErrorBoundary, ComponentErrorBoundary } from '@/components/error-boundary'
+import { POSLoading, ProductGridSkeleton } from '@/components/ui/loading'
+import { ProductCard } from '@/components/pos/product-card'
+import { useDebounce } from '@/lib/performance'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -33,6 +37,7 @@ import type { ProductWithCategory, CartItem, PosTransaction } from '@/types'
 
 export default function POSPage() {
   const [searchQuery, setSearchQuery] = useState('')
+  const debouncedSearchQuery = useDebounce(searchQuery, 300)
   const [selectedCategory, setSelectedCategory] = useState<string>('')
   const [cart, setCart] = useState<CartItem[]>([])
   const [showPayment, setShowPayment] = useState(false)
@@ -49,14 +54,14 @@ export default function POSPage() {
   const { processTransaction, loading: transactionLoading, getTodaysSales } = useTransactions()
   const { printReceiptForTransaction, downloadReceiptForTransaction, loading: receiptLoading } = useReceipt()
 
-  // Update search suggestions
+  // Update search suggestions (using debounced search for performance)
   useEffect(() => {
-    if (searchQuery.length > 0) {
+    if (debouncedSearchQuery.length > 0) {
       const suggestions = products
         .filter(product => 
           product.is_active && (
-            product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            product.sku?.toLowerCase().includes(searchQuery.toLowerCase())
+            product.name.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
+            product.sku?.toLowerCase().includes(debouncedSearchQuery.toLowerCase())
           )
         )
         .slice(0, 5) // Limit to 5 suggestions
@@ -67,7 +72,7 @@ export default function POSPage() {
       setShowSearchSuggestions(false)
       setSearchSuggestions([])
     }
-  }, [searchQuery, products])
+  }, [debouncedSearchQuery, products])
 
   // Load recently sold items from localStorage or recent transactions
   useEffect(() => {
@@ -119,19 +124,21 @@ export default function POSPage() {
     }
   }
 
-  // Filter products based on search and category
-  const filteredProducts = products.filter(product => {
-    if (!product.is_active) return false
-    
-    const matchesSearch = !searchQuery || 
-      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.sku?.toLowerCase().includes(searchQuery.toLowerCase())
-    
-    const matchesCategory = !selectedCategory || 
-      product.category_id === selectedCategory
+  // Filter products based on search and category (memoized for performance)
+  const filteredProducts = useMemo(() => {
+    return products.filter(product => {
+      if (!product.is_active) return false
+      
+      const matchesSearch = !debouncedSearchQuery || 
+        product.name.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
+        product.sku?.toLowerCase().includes(debouncedSearchQuery.toLowerCase())
+      
+      const matchesCategory = !selectedCategory || 
+        product.category_id === selectedCategory
 
-    return matchesSearch && matchesCategory
-  })
+      return matchesSearch && matchesCategory
+    })
+  }, [products, debouncedSearchQuery, selectedCategory])
 
   // Cart operations
   const addToCart = (product: ProductWithCategory) => {
@@ -188,44 +195,50 @@ export default function POSPage() {
     setShowPayment(false)
   }
 
-  // Calculate totals with discount application
-  const subtotal = cart.reduce((sum, item) => sum + item.line_total, 0)
-  
-  // Apply applicable discounts
-  const activeDiscounts = getActiveDiscounts()
-  const applicableDiscounts = activeDiscounts.filter(discount => 
-    isDiscountApplicable(
-      discount, 
-      subtotal, 
-      cart.map(item => item.product.id),
-      cart.map(item => item.product.category_id as string).filter((id): id is string => id !== null)
+  // Calculate totals with discount application (memoized for performance)
+  const { subtotal, applicableDiscounts, totalDiscountAmount, discountedSubtotal, tax, total, cartItemCount } = useMemo(() => {
+    const subtotal = cart.reduce((sum, item) => sum + item.line_total, 0)
+    
+    // Apply applicable discounts
+    const activeDiscounts = getActiveDiscounts()
+    const applicableDiscounts = activeDiscounts.filter(discount => 
+      isDiscountApplicable(
+        discount, 
+        subtotal, 
+        cart.map(item => item.product.id),
+        cart.map(item => item.product.category_id as string).filter((id): id is string => id !== null)
+      )
     )
-  )
-  
-  const totalDiscountAmount = applicableDiscounts.reduce((sum, discount) => 
-    sum + calculateDiscountAmount(discount, subtotal, cart), 0
-  )
-  
-  const discountedSubtotal = Math.max(0, subtotal - totalDiscountAmount)
-  const tax = discountedSubtotal * 0.08 // 8% tax rate - this would come from store settings
-  const total = discountedSubtotal + tax
-
-  // Get cart item count for display
-  const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0)
+    
+    const totalDiscountAmount = applicableDiscounts.reduce((sum, discount) => 
+      sum + calculateDiscountAmount(discount, subtotal, cart), 0
+    )
+    
+    const discountedSubtotal = Math.max(0, subtotal - totalDiscountAmount)
+    const tax = discountedSubtotal * 0.08 // 8% tax rate - this would come from store settings
+    const total = discountedSubtotal + tax
+    
+    // Get cart item count for display
+    const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0)
+    
+    return {
+      subtotal,
+      applicableDiscounts,
+      totalDiscountAmount,
+      discountedSubtotal,
+      tax,
+      total,
+      cartItemCount
+    }
+  }, [cart, getActiveDiscounts, isDiscountApplicable, calculateDiscountAmount])
 
   if (productsLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <Package className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-          <p>Loading products...</p>
-        </div>
-      </div>
-    )
+    return <POSLoading />
   }
 
   return (
-    <div className="h-screen flex flex-col bg-background">
+    <PageErrorBoundary>
+      <div className="h-screen flex flex-col bg-background">
       {/* Header */}
       <div className="border-b p-4">
         <div className="flex items-center justify-between">
@@ -383,55 +396,13 @@ export default function POSPage() {
                   const cartItem = cart.find(item => item.product.id === product.id)
                   
                   return (
-                    <Card 
-                      key={product.id} 
-                      className={`cursor-pointer transition-all duration-200 h-[160px] md:h-[140px] w-full flex flex-col relative active:scale-95 ${
-                        isInCart 
-                          ? 'border-green-500 bg-green-50 shadow-md ring-2 ring-green-200' 
-                          : 'hover:shadow-md border-border'
-                      }`}
-                      onClick={() => addToCartWithRecent(product)}
-                    >
-                      {/* Selection Indicator */}
-                      {isInCart && (
-                        <div className="absolute top-2 right-2 z-10">
-                          <div className="bg-green-500 text-white rounded-full flex items-center justify-center min-w-[24px] h-6 px-2">
-                            <span className="text-xs font-bold">{cartItem?.quantity}</span>
-                          </div>
-                        </div>
-                      )}
-                      
-                      <CardContent className="p-3 md:p-4 flex flex-col h-full justify-between overflow-hidden">
-                        <div className="flex-1 flex items-center justify-center min-h-0">
-                          <h3 className="text-center font-medium text-sm md:text-sm leading-tight line-clamp-2 overflow-hidden text-ellipsis">
-                            {product.name}
-                          </h3>
-                        </div>
-                        
-                        <div className="mt-2 space-y-1 flex-shrink-0">
-                          <div className="text-center">
-                            <div className="text-base md:text-base font-bold text-primary">
-                              {formatPrice(product.price)}
-                            </div>
-                          </div>
-                          
-                          {/* Desktop only details */}
-                          <div className="hidden md:block space-y-1">
-                            {product.category && (
-                              <Badge variant="outline" className="text-xs">
-                                {product.category.name}
-                              </Badge>
-                            )}
-                            
-                            {product.sku && (
-                              <div className="text-xs text-muted-foreground truncate">
-                                SKU: {product.sku}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      isInCart={isInCart}
+                      cartQuantity={cartItem?.quantity}
+                      onAddToCart={addToCartWithRecent}
+                    />
                   )
                 })}
               </div>
@@ -462,7 +433,7 @@ export default function POSPage() {
                   <Card key={item.product.id} className="p-3">
                     <div className="flex justify-between items-start mb-2">
                       <div className="flex-1">
-                        <h4 className="font-medium text-sm line-clamp-2">
+                        <h4 className="font-medium text-xs line-clamp-2">
                           {item.product.name}
                         </h4>
                         <p className="text-xs text-muted-foreground">
@@ -551,7 +522,7 @@ export default function POSPage() {
                   <span>{formatPrice(tax)}</span>
                 </div>
                 <Separator />
-                <div className="flex justify-between text-lg font-bold">
+                <div className="flex justify-between text-base font-bold">
                   <span>Total:</span>
                   <span>{formatPrice(total)}</span>
                 </div>
@@ -832,7 +803,7 @@ export default function POSPage() {
                     <Card key={item.product.id} className="p-4 bg-muted/20">
                       <div className="flex justify-between items-start mb-4">
                         <div className="flex-1">
-                          <h4 className="font-semibold text-lg">{item.product.name}</h4>
+                          <h4 className="font-semibold text-base">{item.product.name}</h4>
                           <p className="text-muted-foreground">
                             {formatPrice(item.unit_price)} each
                           </p>
@@ -857,7 +828,7 @@ export default function POSPage() {
                           >
                             <Minus className="h-5 w-5" />
                           </Button>
-                          <span className="w-16 text-center font-bold text-xl">
+                          <span className="w-16 text-center font-bold text-lg">
                             {item.quantity}
                           </span>
                           <Button
@@ -869,7 +840,7 @@ export default function POSPage() {
                             <Plus className="h-5 w-5" />
                           </Button>
                         </div>
-                        <div className="font-bold text-xl text-primary">
+                        <div className="font-bold text-lg text-primary">
                           {formatPrice(item.line_total)}
                         </div>
                       </div>
@@ -878,23 +849,25 @@ export default function POSPage() {
                   
                   {/* AI Recommendation Widget */}
                   <div className="mt-4">
-                    <RecommendationWidget
-                      cartItems={cart.map(item => ({
-                        id: item.product.id,
-                        name: item.product.name,
-                        category: (item.product as any).category?.name,
-                        price: item.unit_price,
-                        quantity: item.quantity
-                      }))}
-                      onAddToCart={(productId, productName) => {
-                        // Find the product in our products list and add it
-                        const product = products.find(p => p.id === productId)
-                        if (product) {
-                          addToCartWithRecent(product)
-                        }
-                      }}
-                      compact={true}
-                    />
+                    <ComponentErrorBoundary componentName="Recommendation Widget">
+                      <RecommendationWidget
+                        cartItems={cart.map(item => ({
+                          id: item.product.id,
+                          name: item.product.name,
+                          category: (item.product as any).category?.name,
+                          price: item.unit_price,
+                          quantity: item.quantity
+                        }))}
+                        onAddToCart={(productId, productName) => {
+                          // Find the product in our products list and add it
+                          const product = products.find(p => p.id === productId)
+                          if (product) {
+                            addToCartWithRecent(product)
+                          }
+                        }}
+                        compact={true}
+                      />
+                    </ComponentErrorBoundary>
                   </div>
                 </div>
               )}
@@ -919,7 +892,7 @@ export default function POSPage() {
                     <span>{formatPrice(tax)}</span>
                   </div>
                   <Separator />
-                  <div className="flex justify-between text-xl font-bold">
+                  <div className="flex justify-between text-lg font-bold">
                     <span>Total:</span>
                     <span>{formatPrice(total)}</span>
                   </div>
@@ -959,5 +932,6 @@ export default function POSPage() {
         </div>
       )}
     </div>
+    </PageErrorBoundary>
   )
 }
