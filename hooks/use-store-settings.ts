@@ -13,8 +13,8 @@ export function useStoreSettings(): StoreSettings {
 
   // Default settings - can be overridden by store-specific settings in the future
   const defaultSettings: StoreSettings = {
-    currency: process.env.NEXT_PUBLIC_DEFAULT_CURRENCY || 'USD',
-    locale: process.env.NEXT_PUBLIC_DEFAULT_LOCALE || 'en-US',
+    currency: process.env.NEXT_PUBLIC_DEFAULT_CURRENCY || 'IDR',
+    locale: process.env.NEXT_PUBLIC_DEFAULT_LOCALE || 'id-ID',
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
   }
 

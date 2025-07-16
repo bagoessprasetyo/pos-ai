@@ -26,7 +26,7 @@ CREATE TABLE public.stores (
   owner_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
   settings JSONB DEFAULT '{}',
   tax_rate DECIMAL(5,4) DEFAULT 0.0000,
-  currency TEXT DEFAULT 'USD',
+  currency TEXT DEFAULT 'IDR',
   timezone TEXT DEFAULT 'UTC',
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,

@@ -7,15 +7,7 @@ import { useStore } from '@/contexts/store-context'
 import { useAnalytics } from '@/hooks/use-analytics'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Package, ShoppingCart, DollarSign, TrendingUp } from 'lucide-react'
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount)
-}
+import { formatPrice } from '@/utils/currency'
 
 function calculateGrowth(current: number, previous: number): string {
   if (previous === 0) return current > 0 ? '+100%' : '0%'
@@ -133,7 +125,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {analyticsLoading ? '...' : formatCurrency(analytics.todaysSales)}
+              {analyticsLoading ? '...' : formatPrice(analytics.todaysSales)}
             </div>
             <p className="text-xs text-muted-foreground">
               {calculateGrowth(analytics.todaysSales, yesterdaySales)} from yesterday
@@ -151,7 +143,7 @@ export default function DashboardPage() {
               {analyticsLoading ? '...' : analytics.todaysTransactions}
             </div>
             <p className="text-xs text-muted-foreground">
-              Avg: {analyticsLoading ? '...' : formatCurrency(analytics.avgTransactionValue)} per transaction
+              Avg: {analyticsLoading ? '...' : formatPrice(analytics.avgTransactionValue)} per transaction
             </p>
           </CardContent>
         </Card>
@@ -163,7 +155,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {analyticsLoading ? '...' : formatCurrency(analytics.weekSales)}
+              {analyticsLoading ? '...' : formatPrice(analytics.weekSales)}
             </div>
             <p className="text-xs text-muted-foreground">
               {analytics.todaysItemsSold} items sold today
@@ -178,7 +170,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {analyticsLoading ? '...' : formatCurrency(analytics.monthSales)}
+              {analyticsLoading ? '...' : formatPrice(analytics.monthSales)}
             </div>
             <p className="text-xs text-muted-foreground">
               {calculateGrowth(analytics.weekSales, lastWeekSales)} vs last week
@@ -235,7 +227,7 @@ export default function DashboardPage() {
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="font-medium">{formatCurrency(transaction.total)}</p>
+                      <p className="font-medium">{formatPrice(transaction.total)}</p>
                       <p className="text-muted-foreground text-xs">
                         {new Date(transaction.created_at).toLocaleDateString()}
                       </p>
@@ -273,7 +265,7 @@ export default function DashboardPage() {
                     <span className="text-sm font-medium">{product.name}</span>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-medium">{formatCurrency(product.sales)}</p>
+                    <p className="text-sm font-medium">{formatPrice(product.sales)}</p>
                     <p className="text-xs text-muted-foreground">{product.quantity} sold</p>
                   </div>
                 </div>

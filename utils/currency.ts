@@ -8,8 +8,8 @@ export function formatPrice(
   }
 ): string {
   // Get default currency and locale from environment or fallback
-  const defaultCurrency = process.env.NEXT_PUBLIC_DEFAULT_CURRENCY || 'USD'
-  const defaultLocale = process.env.NEXT_PUBLIC_DEFAULT_LOCALE || 'en-US'
+  const defaultCurrency = process.env.NEXT_PUBLIC_DEFAULT_CURRENCY || 'IDR'
+  const defaultLocale = process.env.NEXT_PUBLIC_DEFAULT_LOCALE || 'id-ID'
   
   const currency = options?.currency || defaultCurrency
   const locale = options?.locale || defaultLocale
@@ -24,8 +24,8 @@ export function formatPrice(
 
 export function formatPriceCompact(
   amount: number, 
-  currency: string = 'USD',
-  locale: string = 'en-US'
+  currency: string = 'IDR',
+  locale: string = 'id-ID'
 ): string {
   if (amount >= 1000000) {
     return new Intl.NumberFormat(locale, {
@@ -53,12 +53,12 @@ export function formatCurrency(
 ): string {
   const defaultOptions: Intl.NumberFormatOptions = {
     style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+    currency: 'IDR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
   }
 
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat('id-ID', {
     ...defaultOptions,
     ...options,
   }).format(amount)
@@ -68,7 +68,7 @@ export function formatNumber(
   number: number,
   options: Intl.NumberFormatOptions = {}
 ): string {
-  return new Intl.NumberFormat('en-US', options).format(number)
+  return new Intl.NumberFormat('id-ID', options).format(number)
 }
 
 // Calculate tax amount
