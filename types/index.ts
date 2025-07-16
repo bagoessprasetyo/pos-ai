@@ -32,6 +32,10 @@ export type StoreStaff = Database['public']['Tables']['store_staff']['Row']
 export type Category = Database['public']['Tables']['categories']['Row']
 export type Product = Database['public']['Tables']['products']['Row']
 export type Transaction = Database['public']['Tables']['transactions']['Row']
+export type TableArea = Database['public']['Tables']['table_areas']['Row']
+export type Table = Database['public']['Tables']['tables']['Row']
+export type TableReservation = Database['public']['Tables']['table_reservations']['Row']
+export type TableSession = Database['public']['Tables']['table_sessions']['Row']
 
 // Insert types
 export type ProfileInsert = Database['public']['Tables']['profiles']['Insert']
@@ -40,6 +44,10 @@ export type StoreStaffInsert = Database['public']['Tables']['store_staff']['Inse
 export type CategoryInsert = Database['public']['Tables']['categories']['Insert']
 export type ProductInsert = Database['public']['Tables']['products']['Insert']
 export type TransactionInsert = Database['public']['Tables']['transactions']['Insert']
+export type TableAreaInsert = Database['public']['Tables']['table_areas']['Insert']
+export type TableInsert = Database['public']['Tables']['tables']['Insert']
+export type TableReservationInsert = Database['public']['Tables']['table_reservations']['Insert']
+export type TableSessionInsert = Database['public']['Tables']['table_sessions']['Insert']
 
 // Update types
 export type ProfileUpdate = Database['public']['Tables']['profiles']['Update']
@@ -48,6 +56,10 @@ export type StoreStaffUpdate = Database['public']['Tables']['store_staff']['Upda
 export type CategoryUpdate = Database['public']['Tables']['categories']['Update']
 export type ProductUpdate = Database['public']['Tables']['products']['Update']
 export type TransactionUpdate = Database['public']['Tables']['transactions']['Update']
+export type TableAreaUpdate = Database['public']['Tables']['table_areas']['Update']
+export type TableUpdate = Database['public']['Tables']['tables']['Update']
+export type TableReservationUpdate = Database['public']['Tables']['table_reservations']['Update']
+export type TableSessionUpdate = Database['public']['Tables']['table_sessions']['Update']
 
 // Extended types with relations
 export interface ProductWithCategory extends Product {
@@ -91,7 +103,7 @@ export interface StaffMemberWithProfile {
   id: string
   store_id: string
   user_id: string
-  role: 'owner' | 'manager' | 'cashier' | 'viewer'
+  role: 'owner' | 'manager' | 'cashier' | 'kitchen' | 'viewer'
   permissions: any | null
   is_active: boolean
   created_at: string
@@ -173,6 +185,8 @@ export interface PosTransaction {
   tax_amount: number
   discount_amount: number
   total: number
+  service_type?: ServiceType
+  table_id?: string | null
   payments: Array<{
     method: string
     amount: number
@@ -216,6 +230,9 @@ export enum TransactionType {
 
 export enum TransactionStatus {
   PENDING = 'pending',
+  KITCHEN_QUEUE = 'kitchen_queue',
+  PREPARING = 'preparing',
+  READY = 'ready',
   COMPLETED = 'completed',
   CANCELLED = 'cancelled',
   REFUNDED = 'refunded'
@@ -225,6 +242,7 @@ export enum UserRole {
   OWNER = 'owner',
   MANAGER = 'manager',
   CASHIER = 'cashier',
+  KITCHEN = 'kitchen',
   VIEWER = 'viewer'
 }
 
@@ -232,6 +250,20 @@ export enum DiscountType {
   PERCENTAGE = 'percentage',
   FIXED_AMOUNT = 'fixed_amount',
   BUY_X_GET_Y = 'buy_x_get_y'
+}
+
+export enum KitchenOrderStatus {
+  PENDING = 'pending',
+  PREPARING = 'preparing',
+  READY = 'ready',
+  COMPLETED = 'completed'
+}
+
+export enum KitchenOrderPriority {
+  LOW = 'low',
+  NORMAL = 'normal',
+  HIGH = 'high',
+  URGENT = 'urgent'
 }
 
 // Discount types
@@ -292,6 +324,51 @@ export interface AppliedDiscount {
   amount: number
   applied_to: 'transaction' | 'item'
   item_ids?: string[]
+}
+
+// Kitchen order types
+export interface KitchenOrder {
+  id: string
+  transaction_id: string
+  store_id: string
+  order_number: string
+  status: KitchenOrderStatus
+  priority: KitchenOrderPriority
+  estimated_prep_time?: number
+  actual_prep_time?: number
+  special_instructions?: string
+  assigned_to?: string
+  started_at?: string
+  completed_at?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface KitchenOrderWithTransaction extends KitchenOrder {
+  transaction: TransactionWithItems
+  assigned_staff?: Profile
+}
+
+export interface KitchenOrderInsert {
+  transaction_id: string
+  store_id: string
+  order_number: string
+  status?: KitchenOrderStatus
+  priority?: KitchenOrderPriority
+  estimated_prep_time?: number
+  special_instructions?: string
+  assigned_to?: string
+}
+
+export interface KitchenOrderUpdate {
+  status?: KitchenOrderStatus
+  priority?: KitchenOrderPriority
+  estimated_prep_time?: number
+  actual_prep_time?: number
+  special_instructions?: string
+  assigned_to?: string
+  started_at?: string
+  completed_at?: string
 }
 
 // API Response types
@@ -614,3 +691,161 @@ export type ErrorCode =
   | 'SERVER_ERROR'
   | 'RATE_LIMIT_ERROR'
   | 'UNKNOWN_ERROR'
+
+// Table layout management types
+// export enum TableStatus {
+//   AVAILABLE = 'available',
+//   OCCUPIED = 'occupied',
+//   RESERVED = 'reserved',
+//   CLEANING = 'cleaning',
+//   OUT_OF_SERVICE = 'out_of_service'
+// }
+
+// export type TableShape = 'rectangle' | 'circle' | 'square'
+//   RECTANGLE = 'rectangle',
+//   CIRCLE = 'circle',
+//   SQUARE = 'square'
+// }
+
+export enum ReservationStatus {
+  PENDING = 'pending',
+  CONFIRMED = 'confirmed',
+  SEATED = 'seated',
+  COMPLETED = 'completed',
+  CANCELLED = 'cancelled',
+  NO_SHOW = 'no_show'
+}
+
+export enum SessionStatus {
+  ACTIVE = 'active',
+  COMPLETED = 'completed',
+  ABANDONED = 'abandoned'
+}
+
+export type ServiceType = 'takeout' | 'dine_in' | 'delivery'
+
+// Table-related types
+export type TableStatus = 'available' | 'occupied' | 'reserved' | 'cleaning' | 'out_of_service'
+export type TableShape = 'rectangle' | 'circle' | 'square'
+
+// Table position interface
+export interface TablePosition {
+  x: number
+  y: number
+  width: number
+  height: number
+  rotation: number
+}
+
+// Extended table types with relations
+export interface TableWithArea extends Table {
+  area?: TableArea | null
+}
+
+export interface TableWithSession extends Table {
+  current_session?: TableSession | null
+  area?: TableArea | null
+}
+
+export interface TableAreaWithTables extends TableArea {
+  tables: Table[]
+}
+
+export interface ReservationWithDetails extends TableReservation {
+  tables: TableWithArea
+}
+
+export interface SessionWithDetails extends TableSession {
+  tables: TableWithArea
+}
+
+// Table layout management interfaces
+export interface TableLayoutDesigner {
+  areas: TableAreaWithTables[]
+  selectedTable?: Table | null
+  selectedArea?: TableArea | null
+  mode: 'select' | 'add_table' | 'add_area' | 'edit'
+  grid_size: number
+  zoom: number
+}
+
+export interface TableFormData {
+  table_number: string
+  seats: number
+  min_party_size: number
+  max_party_size?: number
+  shape: TableShape
+  notes?: string
+  position?: TablePosition
+  area_id?: string
+}
+
+export interface TableAreaFormData {
+  name: string
+  description?: string
+  color: string
+  sort_order: number
+}
+
+export interface ReservationFormData {
+  table_id: string
+  customer_id?: string
+  customer_name?: string
+  customer_phone?: string
+  party_size: number
+  reservation_time: string
+  duration_minutes: number
+  special_requests?: string
+  notes?: string
+}
+
+export interface TableSessionFormData {
+  table_id: string
+  reservation_id?: string
+  party_size: number
+  estimated_duration: number
+  notes?: string
+}
+
+// Table analytics and reporting
+export interface TableUtilization {
+  table_id: string
+  table_number: string
+  area_name: string
+  total_sessions: number
+  total_duration_minutes: number
+  average_duration_minutes: number
+  utilization_percentage: number
+  revenue: number
+}
+
+export interface TableTurnover {
+  date: string
+  table_id: string
+  table_number: string
+  turns: number
+  avg_duration: number
+  total_revenue: number
+}
+
+export interface DiningAreaStats {
+  area_id: string
+  area_name: string
+  total_tables: number
+  occupied_tables: number
+  available_tables: number
+  cleaning_tables: number
+  out_of_service_tables: number
+  utilization_rate: number
+}
+
+// Store settings for dine-in service
+export interface DineInSettings {
+  enabled: boolean
+  default_service_time: number
+  auto_table_cleanup: boolean
+  reservation_window_days: number
+  require_reservations: boolean
+  walk_in_enabled: boolean
+  table_numbering_style: 'numeric' | 'alphanumeric' | 'custom'
+}

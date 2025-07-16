@@ -254,7 +254,7 @@ export default function StaffPage() {
         ) : !staffError && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredStaff.map((member) => {
-              const roleInfo = roleConfig[member.role]
+              const roleInfo = roleConfig[member.role as keyof typeof roleConfig]
               const RoleIcon = roleInfo.icon
               
               return (

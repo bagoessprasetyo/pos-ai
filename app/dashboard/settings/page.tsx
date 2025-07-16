@@ -15,7 +15,7 @@ import {
   MapPin, 
   Phone, 
   Mail, 
-  Clock, 
+  // Clock, 
   DollarSign,
   Palette,
   Save,
@@ -25,11 +25,19 @@ import {
   Receipt,
   AlertCircle,
   CheckCircle,
-  Loader2
+  Loader2,
+  ChefHat,
+  Bell,
+  Timer,
+  Users,
+  TableProperties,
+  Calendar,
+  Clock
 } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { toast } from 'sonner'
 import type { Store as StoreType } from '@/types'
 
 const storeSettingsSchema = z.object({
@@ -57,6 +65,22 @@ const storeSettingsSchema = z.object({
     show_tax_details: z.boolean(),
     show_store_info: z.boolean(),
   }).optional(),
+  kitchen_dashboard: z.object({
+    enabled: z.boolean(),
+    show_timer: z.boolean(),
+    show_customer_names: z.boolean(),
+    auto_print_tickets: z.boolean(),
+    sound_notifications: z.boolean(),
+  }).optional(),
+  dine_in_service: z.object({
+    enabled: z.boolean(),
+    default_service_time: z.number().min(30).max(300),
+    auto_table_cleanup: z.boolean(),
+    reservation_window_days: z.number().min(1).max(90),
+    require_reservations: z.boolean(),
+    walk_in_enabled: z.boolean(),
+    table_numbering_style: z.enum(['numeric', 'alphanumeric', 'custom']),
+  }).optional(),
 })
 
 type StoreSettingsForm = z.infer<typeof storeSettingsSchema>
@@ -79,6 +103,24 @@ const defaultReceiptSettings = {
   show_store_info: true,
 }
 
+const defaultKitchenDashboard = {
+  enabled: false,
+  show_timer: true,
+  show_customer_names: true,
+  auto_print_tickets: false,
+  sound_notifications: true,
+}
+
+const defaultDineInService = {
+  enabled: false,
+  default_service_time: 90,
+  auto_table_cleanup: true,
+  reservation_window_days: 30,
+  require_reservations: false,
+  walk_in_enabled: true,
+  table_numbering_style: 'numeric' as const,
+}
+
 export default function StoreSettingsPage() {
   const { currentStore, refreshStores } = useStore()
   const [loading, setLoading] = useState(false)
@@ -98,6 +140,8 @@ export default function StoreSettingsPage() {
       timezone: 'UTC',
       business_hours: defaultBusinessHours,
       receipt_settings: defaultReceiptSettings,
+      kitchen_dashboard: defaultKitchenDashboard,
+      dine_in_service: defaultDineInService,
     }
   })
 
@@ -116,6 +160,8 @@ export default function StoreSettingsPage() {
         timezone: currentStore.timezone || 'UTC',
         business_hours: settings.business_hours || defaultBusinessHours,
         receipt_settings: settings.receipt_settings || defaultReceiptSettings,
+        kitchen_dashboard: settings.kitchen_dashboard || defaultKitchenDashboard,
+        dine_in_service: settings.dine_in_service || defaultDineInService,
       })
     }
   }, [currentStore, form])
@@ -127,13 +173,23 @@ export default function StoreSettingsPage() {
     setSaveStatus('saving')
 
     try {
-      const { business_hours, receipt_settings, ...storeData } = data
+      const { business_hours, receipt_settings, kitchen_dashboard, dine_in_service, ...storeData } = data
+      
+      // Check if kitchen dashboard setting is being enabled
+      const prevKitchenEnabled = (currentStore.settings as any)?.kitchen_dashboard?.enabled || false
+      const newKitchenEnabled = kitchen_dashboard?.enabled || false
+      
+      // Check if dine-in service setting is being enabled
+      const prevDineInEnabled = (currentStore.settings as any)?.dine_in_service?.enabled || false
+      const newDineInEnabled = dine_in_service?.enabled || false
       
       const updateData = {
         ...storeData,
         settings: {
           business_hours,
           receipt_settings,
+          kitchen_dashboard,
+          dine_in_service,
           ...(currentStore.settings as any || {}),
         }
       }
@@ -148,10 +204,38 @@ export default function StoreSettingsPage() {
       setSaveStatus('success')
       await refreshStores()
       
+      // Show appropriate toast notification
+      if (!prevKitchenEnabled && newKitchenEnabled) {
+        toast.success('Kitchen Dashboard Enabled', {
+          description: 'Please refresh the page to see the Kitchen menu in the sidebar.',
+          duration: 6000,
+        })
+      } else if (prevKitchenEnabled && !newKitchenEnabled) {
+        toast.info('Kitchen Dashboard Disabled', {
+          description: 'Please refresh the page to remove the Kitchen menu from the sidebar.',
+          duration: 6000,
+        })
+      } else if (!prevDineInEnabled && newDineInEnabled) {
+        toast.success('Dine-In Service Enabled', {
+          description: 'You can now set up your table layout and accept dine-in orders.',
+          duration: 6000,
+        })
+      } else if (prevDineInEnabled && !newDineInEnabled) {
+        toast.info('Dine-In Service Disabled', {
+          description: 'Table layout and dine-in features have been disabled.',
+          duration: 6000,
+        })
+      } else {
+        toast.success('Settings saved successfully!')
+      }
+      
       setTimeout(() => setSaveStatus('idle'), 3000)
     } catch (error) {
       console.error('Failed to update store settings:', error)
       setSaveStatus('error')
+      toast.error('Failed to save settings', {
+        description: 'Please try again or contact support if the issue persists.'
+      })
       setTimeout(() => setSaveStatus('idle'), 3000)
     } finally {
       setLoading(false)
@@ -342,6 +426,219 @@ export default function StoreSettingsPage() {
                   </select>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Kitchen Dashboard */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ChefHat className="h-5 w-5" />
+                Kitchen Dashboard
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="kitchen_enabled"
+                  {...form.register('kitchen_dashboard.enabled')}
+                  className="h-4 w-4"
+                />
+                <Label htmlFor="kitchen_enabled" className="text-sm font-medium">
+                  Enable Kitchen Dashboard
+                </Label>
+              </div>
+              
+              <p className="text-sm text-muted-foreground">
+                When enabled, orders will be sent to the kitchen dashboard where staff can manage preparation and notify when orders are ready for pickup.
+              </p>
+              
+              {form.watch('kitchen_dashboard.enabled') && (
+                <div className="space-y-3 pt-2 border-t">
+                  <h4 className="font-medium text-sm">Kitchen Dashboard Settings</h4>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="show_timer"
+                        {...form.register('kitchen_dashboard.show_timer')}
+                        className="h-4 w-4"
+                      />
+                      <Label htmlFor="show_timer" className="text-sm font-normal">
+                        Show preparation timers
+                      </Label>
+                    </div>
+                    
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="show_customer_names"
+                        {...form.register('kitchen_dashboard.show_customer_names')}
+                        className="h-4 w-4"
+                      />
+                      <Label htmlFor="show_customer_names" className="text-sm font-normal">
+                        Show customer names
+                      </Label>
+                    </div>
+                    
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="auto_print_tickets"
+                        {...form.register('kitchen_dashboard.auto_print_tickets')}
+                        className="h-4 w-4"
+                      />
+                      <Label htmlFor="auto_print_tickets" className="text-sm font-normal">
+                        Auto-print kitchen tickets
+                      </Label>
+                    </div>
+                    
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="sound_notifications"
+                        {...form.register('kitchen_dashboard.sound_notifications')}
+                        className="h-4 w-4"
+                      />
+                      <Label htmlFor="sound_notifications" className="text-sm font-normal">
+                        Sound notifications
+                      </Label>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Dine-In Service */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TableProperties className="h-5 w-5" />
+                Dine-In Service
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="dine_in_enabled"
+                  {...form.register('dine_in_service.enabled')}
+                  className="h-4 w-4"
+                />
+                <Label htmlFor="dine_in_enabled" className="text-sm font-medium">
+                  Enable Dine-In Service
+                </Label>
+              </div>
+              
+              <p className="text-sm text-muted-foreground">
+                Enable table layout management and dine-in order processing. You'll be able to set up your restaurant layout and manage table reservations.
+              </p>
+              
+              {form.watch('dine_in_service.enabled') && (
+                <div className="space-y-4 pt-2 border-t">
+                  <h4 className="font-medium text-sm">Dine-In Service Settings</h4>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="default_service_time">Default Service Time (minutes)</Label>
+                      <Input
+                        id="default_service_time"
+                        type="number"
+                        min="30"
+                        max="300"
+                        {...form.register('dine_in_service.default_service_time', { valueAsNumber: true })}
+                        placeholder="90"
+                        className="h-11 md:h-10"
+                      />
+                      <p className="text-xs text-muted-foreground">Expected time customers spend at tables</p>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="reservation_window_days">Reservation Window (days)</Label>
+                      <Input
+                        id="reservation_window_days"
+                        type="number"
+                        min="1"
+                        max="90"
+                        {...form.register('dine_in_service.reservation_window_days', { valueAsNumber: true })}
+                        placeholder="30"
+                        className="h-11 md:h-10"
+                      />
+                      <p className="text-xs text-muted-foreground">How far ahead customers can book</p>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="table_numbering_style">Table Numbering Style</Label>
+                      <select
+                        id="table_numbering_style"
+                        {...form.register('dine_in_service.table_numbering_style')}
+                        className="flex h-11 md:h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <option value="numeric">Numeric (1, 2, 3...)</option>
+                        <option value="alphanumeric">Alphanumeric (A1, B2, C3...)</option>
+                        <option value="custom">Custom Numbers</option>
+                      </select>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="auto_table_cleanup"
+                        {...form.register('dine_in_service.auto_table_cleanup')}
+                        className="h-4 w-4"
+                      />
+                      <Label htmlFor="auto_table_cleanup" className="text-sm font-normal">
+                        Auto table cleanup
+                      </Label>
+                    </div>
+                    
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="require_reservations"
+                        {...form.register('dine_in_service.require_reservations')}
+                        className="h-4 w-4"
+                      />
+                      <Label htmlFor="require_reservations" className="text-sm font-normal">
+                        Require reservations
+                      </Label>
+                    </div>
+                    
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="walk_in_enabled"
+                        {...form.register('dine_in_service.walk_in_enabled')}
+                        className="h-4 w-4"
+                      />
+                      <Label htmlFor="walk_in_enabled" className="text-sm font-normal">
+                        Allow walk-ins
+                      </Label>
+                    </div>
+                  </div>
+                  
+                  {form.watch('dine_in_service.enabled') && (
+                    <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
+                      <div className="flex items-start gap-2">
+                        <TableProperties className="h-5 w-5 text-blue-600 mt-0.5" />
+                        <div>
+                          <h5 className="font-medium text-blue-900 dark:text-blue-100">Next Steps</h5>
+                          <p className="text-sm text-blue-700 dark:text-blue-200 mt-1">
+                            After saving these settings, you can set up your table layout by going to <strong>Tables → Layout Designer</strong> in the sidebar.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
 

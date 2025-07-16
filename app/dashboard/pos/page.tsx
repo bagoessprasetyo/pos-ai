@@ -6,10 +6,13 @@ import { useCategories } from '@/hooks/use-categories'
 import { useDiscounts } from '@/hooks/use-discounts'
 import { useTransactions } from '@/hooks/use-transactions'
 import { useReceipt } from '@/hooks/use-receipt'
+import { useDineInSettings } from '@/hooks/use-dine-in-settings'
 import { RecommendationWidget } from '@/components/ai/recommendation-widget'
 import { PageErrorBoundary, ComponentErrorBoundary } from '@/components/error-boundary'
 import { POSLoading, ProductGridSkeleton } from '@/components/ui/loading'
 import { ProductCard } from '@/components/pos/product-card'
+import { PickupOrders } from '@/components/pos/pickup-orders'
+import { ServiceTypeSelector } from '@/components/pos/service-type-selector'
 import { useDebounce } from '@/lib/performance'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -29,11 +32,12 @@ import {
   CheckCircle,
   Receipt,
   Download,
-  Mail
+  Mail,
+  Bell
 } from 'lucide-react'
 import { formatPrice } from '@/utils/currency'
 import { toast } from 'sonner'
-import type { ProductWithCategory, CartItem, PosTransaction } from '@/types'
+import type { ProductWithCategory, CartItem, PosTransaction, ServiceType, Table } from '@/types'
 
 export default function POSPage() {
   const [searchQuery, setSearchQuery] = useState('')
@@ -47,6 +51,9 @@ export default function POSPage() {
   const [searchSuggestions, setSearchSuggestions] = useState<ProductWithCategory[]>([])
   const [recentItems, setRecentItems] = useState<ProductWithCategory[]>([])
   const [showMobileCart, setShowMobileCart] = useState(false)
+  const [activeTab, setActiveTab] = useState<'pos' | 'pickup'>('pos')
+  const [selectedServiceType, setSelectedServiceType] = useState<ServiceType>('takeout' as ServiceType)
+  const [selectedTable, setSelectedTable] = useState<Table | null>(null)
   
   const { products, loading: productsLoading } = useProducts()
   const { categories } = useCategories()
@@ -193,6 +200,8 @@ export default function POSPage() {
   const clearCart = () => {
     setCart([])
     setShowPayment(false)
+    setSelectedTable(null)
+    setSelectedServiceType('takeout' as ServiceType)
   }
 
   // Calculate totals with discount application (memoized for performance)
@@ -241,7 +250,7 @@ export default function POSPage() {
       <div className="h-screen flex flex-col bg-background">
       {/* Header */}
       <div className="border-b p-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-4">
           <h1 className="text-xl md:text-2xl font-bold">Point of Sale</h1>
           <div className="flex items-center gap-2">
             {/* Desktop Cart Info */}
@@ -269,11 +278,37 @@ export default function POSPage() {
             </Button>
           </div>
         </div>
+        
+        {/* Tab Navigation */}
+        <div className="flex space-x-1">
+          <Button
+            variant={activeTab === 'pos' ? 'default' : 'ghost'}
+            onClick={() => setActiveTab('pos')}
+            className="flex items-center gap-2"
+          >
+            <ShoppingCart className="h-4 w-4" />
+            Sale
+          </Button>
+          <Button
+            variant={activeTab === 'pickup' ? 'default' : 'ghost'}
+            onClick={() => setActiveTab('pickup')}
+            className="flex items-center gap-2"
+          >
+            <Bell className="h-4 w-4" />
+            Pickup Orders
+          </Button>
+        </div>
       </div>
 
       <div className="flex-1 flex overflow-hidden md:flex-row min-h-0">
-        {/* Product Selection Area */}
-        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {activeTab === 'pickup' ? (
+          <div className="flex-1 p-4 overflow-auto">
+            <PickupOrders />
+          </div>
+        ) : (
+          <>
+            {/* Product Selection Area */}
+            <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           {/* Search and Filters */}
           <div className="p-3 md:p-4 border-b">
             <div className="mb-3 md:mb-4">
@@ -419,6 +454,16 @@ export default function POSPage() {
             </h2>
           </div>
 
+          {/* Service Type Selector */}
+          <div className="p-4 border-b">
+            <ServiceTypeSelector
+              selectedServiceType={selectedServiceType}
+              selectedTable={selectedTable}
+              onServiceTypeChange={setSelectedServiceType}
+              onTableSelect={setSelectedTable}
+            />
+          </div>
+
           {/* Cart Items */}
           <div className="flex-1 overflow-auto p-4">
             {cart.length === 0 ? (
@@ -533,9 +578,13 @@ export default function POSPage() {
                   className="w-full" 
                   size="lg"
                   onClick={() => setShowPayment(true)}
+                  disabled={selectedServiceType === 'dine_in' && !selectedTable}
                 >
                   <CreditCard className="mr-2 h-4 w-4" />
-                  Proceed to Payment
+                  {selectedServiceType === 'dine_in' && !selectedTable 
+                    ? 'Select Table to Continue' 
+                    : 'Proceed to Payment'
+                  }
                 </Button>
                 <Button 
                   variant="outline" 
@@ -548,6 +597,8 @@ export default function POSPage() {
             </div>
           )}
         </div>
+      </>
+      )}
       </div>
 
       {/* Payment Modal */}
@@ -570,6 +621,16 @@ export default function POSPage() {
               <div className="space-y-4">
                 {/* Order Summary */}
                 <div className="bg-muted/50 p-4 rounded-lg space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Service Type:</span>
+                    <span className="capitalize">{selectedServiceType.replace('_', ' ')}</span>
+                  </div>
+                  {selectedTable && (
+                    <div className="flex justify-between text-sm">
+                      <span>Table:</span>
+                      <span>Table {selectedTable.table_number}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-sm">
                     <span>Items:</span>
                     <span>{cartItemCount}</span>
@@ -608,6 +669,8 @@ export default function POSPage() {
                           tax_amount: tax,
                           discount_amount: totalDiscountAmount,
                           total,
+                          service_type: selectedServiceType,
+                          table_id: selectedTable?.id || null,
                           payments: [{
                             method: 'cash',
                             amount: total
@@ -789,6 +852,16 @@ export default function POSPage() {
               </Button>
             </div>
 
+            {/* Service Type Selector - Mobile */}
+            <div className="p-4 border-b">
+              <ServiceTypeSelector
+                selectedServiceType={selectedServiceType}
+                selectedTable={selectedTable}
+                onServiceTypeChange={setSelectedServiceType}
+                onTableSelect={setSelectedTable}
+              />
+            </div>
+
             {/* Cart Items */}
             <div className="flex-1 overflow-auto p-4">
               {cart.length === 0 ? (
@@ -905,9 +978,13 @@ export default function POSPage() {
                       setShowMobileCart(false)
                       setShowPayment(true)
                     }}
+                    disabled={selectedServiceType === 'dine_in' && !selectedTable}
                   >
                     <CreditCard className="mr-2 h-5 w-5" />
-                    Proceed to Payment
+                    {selectedServiceType === 'dine_in' && !selectedTable 
+                      ? 'Select Table to Continue' 
+                      : 'Proceed to Payment'
+                    }
                   </Button>
                   <div className="grid grid-cols-2 gap-2">
                     <Button 

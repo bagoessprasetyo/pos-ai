@@ -3,18 +3,23 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useStore } from '@/contexts/store-context'
+import { useStoreSettings } from '@/hooks/use-store-settings'
 import type { 
   PosTransaction, 
   CartItem, 
   Transaction, 
   TransactionInsert,
-  TransactionWithItems
+  TransactionWithItems,
+  KitchenOrderInsert,
+  KitchenOrderPriority,
+  KitchenOrderStatus
 } from '@/types'
 
 export function useTransactions() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const { currentStore } = useStore()
+  const { kitchen_dashboard_enabled } = useStoreSettings()
   const supabase = createClient()
 
   const processTransaction = async (transactionData: PosTransaction) => {
@@ -35,17 +40,19 @@ export function useTransactions() {
           cashier_id: (await supabase.auth.getUser()).data.user?.id!,
           transaction_number: `TXN-${Date.now()}`,
           type: 'sale',
-          status: 'completed',
+          status: kitchen_dashboard_enabled ? 'kitchen_queue' : 'completed',
           subtotal: transactionData.subtotal,
           tax_amount: transactionData.tax_amount,
           discount_amount: transactionData.discount_amount,
           total: transactionData.total,
+          service_type: transactionData.service_type || 'takeout',
+          table_id: transactionData.table_id || null,
           notes: transactionData.notes || null,
           metadata: {
             items_count: transactionData.items.length,
             payment_methods: transactionData.payments.map(p => p.method)
           },
-          completed_at: new Date().toISOString()
+          completed_at: kitchen_dashboard_enabled ? null : new Date().toISOString()
         } as TransactionInsert)
         .select()
         .single()
@@ -83,13 +90,90 @@ export function useTransactions() {
 
       if (paymentsError) throw paymentsError
 
+      // Create kitchen order if kitchen dashboard is enabled
+      if (kitchen_dashboard_enabled) {
+        const kitchenOrderData: KitchenOrderInsert = {
+          transaction_id: transaction.id,
+          store_id: currentStore.id,
+          order_number: `K${Date.now().toString().slice(-6)}`, // Generate kitchen order number
+          status: 'new' as KitchenOrderStatus,
+          priority: 'normal' as KitchenOrderPriority,
+          estimated_prep_time: 15, // Default 15 minutes, can be calculated based on items
+          special_instructions: transactionData.notes || undefined
+        }
+
+        const { error: kitchenOrderError } = await supabase
+          .from('kitchen_orders')
+          .insert(kitchenOrderData)
+
+        if (kitchenOrderError) {
+          console.error('Kitchen order creation failed:', kitchenOrderError)
+          // Don't fail the entire transaction for kitchen order errors
+        }
+      }
+
+      // Handle table session for dine-in orders
+      if (transactionData.service_type === 'dine_in' && transactionData.table_id) {
+        // Check if table has an active session
+        const { data: existingSession, error: sessionCheckError } = await supabase
+          .from('table_sessions')
+          .select('id')
+          .eq('table_id', transactionData.table_id)
+          .eq('status', 'active')
+          .single()
+
+        if (sessionCheckError && sessionCheckError.code !== 'PGRST116') { // PGRST116 = no rows returned
+          console.error('Failed to check table session:', sessionCheckError)
+        }
+
+        if (existingSession) {
+          // Update existing session with transaction
+          const { error: sessionUpdateError } = await supabase
+            .from('table_sessions')
+            .update({
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', existingSession.id)
+
+          if (sessionUpdateError) {
+            console.error('Failed to update table session:', sessionUpdateError)
+          }
+
+          // Link transaction to session
+          const { error: transactionUpdateError } = await supabase
+            .from('transactions')
+            .update({
+              table_session_id: existingSession.id
+            })
+            .eq('id', transaction.id)
+
+          if (transactionUpdateError) {
+            console.error('Failed to link transaction to session:', transactionUpdateError)
+          }
+        }
+
+        // Update table status to occupied if not already
+        const { error: tableUpdateError } = await supabase
+          .from('tables')
+          .update({
+            status: 'occupied',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', transactionData.table_id)
+          .neq('status', 'occupied')
+
+        if (tableUpdateError) {
+          console.error('Failed to update table status:', tableUpdateError)
+        }
+      }
+
       // Update inventory for each item
       for (const item of transactionData.items) {
         if (item.product.track_inventory) {
           // Get current inventory first
           const { data: currentInventory, error: fetchError } = await supabase
             .from('inventory')
-            .select('quantity')
+            .select('id, quantity')
             .eq('product_id', item.product.id)
             .eq('store_id', currentStore.id)
             .single()
@@ -119,12 +203,12 @@ export function useTransactions() {
           const { error: adjustmentError } = await supabase
             .from('inventory_adjustments')
             .insert({
-              inventory_id: item.product.id, // This should be the inventory record ID, but we'll use product_id for now
-              type: 'sale',
+              inventory_id: currentInventory.id,
+              adjustment_type: 'sale',
               quantity_change: -item.quantity,
-              reason: 'sale',
-              reference: transaction.id,
-              notes: `Sale transaction: ${transaction.transaction_number}`
+              reason: 'Sale transaction',
+              reference_id: transaction.id,
+              adjusted_by: (await supabase.auth.getUser()).data.user?.id!
             })
             
           if (adjustmentError) {

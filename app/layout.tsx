@@ -21,7 +21,7 @@ const geistMono = localFont({
 export const metadata: Metadata = {
   title: "POS AI - Mobile-First Point of Sale System",
   description: "A comprehensive mobile-first POS system for small to medium businesses",
-  manifest: "/manifest.json",
+  // manifest: "/manifest.json",
 };
 
 export const viewport: Viewport = {

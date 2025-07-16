@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Header } from '@/components/layout/header'
 import { Sidebar } from '@/components/layout/sidebar'
 import { MobileNav } from '@/components/layout/mobile-nav'
+import { OrderNotifications } from '@/components/notifications/order-notifications'
 import { PermissionProvider } from '@/contexts/permission-context'
 
 export default function DashboardLayout({
@@ -56,6 +57,9 @@ export default function DashboardLayout({
 
         {/* Mobile Navigation */}
         <MobileNav />
+
+        {/* Order Notifications */}
+        <OrderNotifications />
       </div>
     </PermissionProvider>
   )

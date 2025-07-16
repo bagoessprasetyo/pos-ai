@@ -19,6 +19,8 @@ export interface Permissions {
   stores: Permission
   settings: Permission
   pos: Permission
+  kitchen: Permission
+  tables: Permission
 }
 
 // Default permissions for each role
@@ -34,6 +36,8 @@ export const rolePermissions: Record<string, Permissions> = {
     stores: { read: true, write: true, delete: true, admin: true },
     settings: { read: true, write: true, delete: true, admin: true },
     pos: { read: true, write: true, delete: true, admin: true },
+    kitchen: { read: true, write: true, delete: true, admin: true },
+    tables: { read: true, write: true, delete: true, admin: true },
   },
   manager: {
     products: { read: true, write: true, delete: true, admin: false },
@@ -46,6 +50,8 @@ export const rolePermissions: Record<string, Permissions> = {
     stores: { read: true, write: false, delete: false, admin: false },
     settings: { read: true, write: true, delete: false, admin: false },
     pos: { read: true, write: true, delete: false, admin: false },
+    kitchen: { read: true, write: true, delete: false, admin: false },
+    tables: { read: true, write: true, delete: false, admin: false },
   },
   cashier: {
     products: { read: true, write: false, delete: false, admin: false },
@@ -58,6 +64,8 @@ export const rolePermissions: Record<string, Permissions> = {
     stores: { read: false, write: false, delete: false, admin: false },
     settings: { read: false, write: false, delete: false, admin: false },
     pos: { read: true, write: true, delete: false, admin: false },
+    kitchen: { read: true, write: false, delete: false, admin: false },
+    tables: { read: true, write: false, delete: false, admin: false },
   },
   viewer: {
     products: { read: true, write: false, delete: false, admin: false },
@@ -70,6 +78,22 @@ export const rolePermissions: Record<string, Permissions> = {
     stores: { read: false, write: false, delete: false, admin: false },
     settings: { read: false, write: false, delete: false, admin: false },
     pos: { read: false, write: false, delete: false, admin: false },
+    kitchen: { read: false, write: false, delete: false, admin: false },
+    tables: { read: false, write: false, delete: false, admin: false },
+  },
+  kitchen: {
+    products: { read: true, write: false, delete: false, admin: false },
+    categories: { read: true, write: false, delete: false, admin: false },
+    inventory: { read: true, write: false, delete: false, admin: false },
+    discounts: { read: true, write: false, delete: false, admin: false },
+    transactions: { read: true, write: true, delete: false, admin: false },
+    analytics: { read: false, write: false, delete: false, admin: false },
+    staff: { read: false, write: false, delete: false, admin: false },
+    stores: { read: false, write: false, delete: false, admin: false },
+    settings: { read: false, write: false, delete: false, admin: false },
+    pos: { read: false, write: false, delete: false, admin: false },
+    kitchen: { read: true, write: true, delete: false, admin: false },
+    tables: { read: true, write: false, delete: false, admin: false },
   },
 }
 
@@ -134,6 +158,13 @@ export class PermissionChecker {
    */
   canAccessPOS(): boolean {
     return this.canRead('pos')
+  }
+
+  /**
+   * Check if user can access kitchen dashboard
+   */
+  canAccessKitchen(): boolean {
+    return this.canRead('kitchen')
   }
 
   /**
@@ -228,6 +259,10 @@ export const permissions = {
       '/dashboard/products/inventory': ['owner', 'manager'],
       '/dashboard/products/discounts': ['owner', 'manager'],
       '/dashboard/pos': ['owner', 'manager', 'cashier'],
+      '/dashboard/kitchen': ['owner', 'manager', 'kitchen'],
+      '/dashboard/table-layout': ['owner', 'manager'],
+      '/dashboard/tables': ['owner', 'manager', 'cashier'],
+      '/dashboard/reservations': ['owner', 'manager', 'cashier'],
       '/dashboard/transactions': ['owner', 'manager', 'cashier'],
       '/dashboard/analytics': ['owner', 'manager', 'viewer'],
       '/dashboard/staff': ['owner'],
@@ -249,6 +284,10 @@ export const permissions = {
       '/dashboard/products/inventory', 
       '/dashboard/products/discounts',
       '/dashboard/pos',
+      '/dashboard/kitchen',
+      '/dashboard/table-layout',
+      '/dashboard/tables',
+      '/dashboard/reservations',
       '/dashboard/transactions',
       '/dashboard/analytics',
       '/dashboard/staff',
@@ -267,6 +306,7 @@ export const permissions = {
       owner: 'Full access to all features and settings',
       manager: 'Manage products, view reports, limited settings access',
       cashier: 'Process sales, view products, limited access',
+      kitchen: 'Manage kitchen orders, view order details, limited access',
       viewer: 'Read-only access to products and reports'
     }
 

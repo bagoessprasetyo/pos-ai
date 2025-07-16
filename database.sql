@@ -38,7 +38,7 @@ CREATE TABLE public.store_staff (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   store_id UUID REFERENCES public.stores(id) ON DELETE CASCADE NOT NULL,
   user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
-  role TEXT NOT NULL CHECK (role IN ('owner', 'manager', 'cashier', 'viewer')),
+  role TEXT NOT NULL CHECK (role IN ('owner', 'manager', 'cashier', 'kitchen', 'viewer')),
   permissions JSONB DEFAULT '{}',
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
@@ -160,7 +160,7 @@ CREATE TABLE public.transactions (
   cashier_id UUID REFERENCES public.profiles(id) NOT NULL,
   transaction_number TEXT NOT NULL,
   type TEXT NOT NULL CHECK (type IN ('sale', 'return', 'void')),
-  status TEXT NOT NULL CHECK (status IN ('pending', 'completed', 'cancelled', 'refunded')) DEFAULT 'pending',
+  status TEXT NOT NULL CHECK (status IN ('pending', 'kitchen_queue', 'preparing', 'ready', 'completed', 'cancelled', 'refunded')) DEFAULT 'pending',
   subtotal DECIMAL(10,2) NOT NULL DEFAULT 0.00,
   tax_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
   discount_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
@@ -210,6 +210,25 @@ CREATE TABLE public.applied_discounts (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
+-- Kitchen orders table (for tracking kitchen-specific order data)
+CREATE TABLE public.kitchen_orders (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  transaction_id UUID REFERENCES public.transactions(id) ON DELETE CASCADE NOT NULL,
+  store_id UUID REFERENCES public.stores(id) ON DELETE CASCADE NOT NULL,
+  order_number TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('pending', 'preparing', 'ready', 'completed')) DEFAULT 'pending',
+  priority TEXT NOT NULL CHECK (priority IN ('low', 'normal', 'high', 'urgent')) DEFAULT 'normal',
+  estimated_prep_time INTEGER, -- in minutes
+  actual_prep_time INTEGER, -- in minutes
+  special_instructions TEXT,
+  assigned_to UUID REFERENCES public.profiles(id),
+  started_at TIMESTAMP WITH TIME ZONE,
+  completed_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  UNIQUE(store_id, order_number)
+);
+
 -- Indexes for performance
 CREATE INDEX idx_stores_owner_id ON public.stores(owner_id);
 CREATE INDEX idx_store_staff_store_id ON public.store_staff(store_id);
@@ -232,6 +251,10 @@ CREATE INDEX idx_transactions_created_at ON public.transactions(created_at);
 CREATE INDEX idx_transaction_items_transaction_id ON public.transaction_items(transaction_id);
 CREATE INDEX idx_transaction_items_product_id ON public.transaction_items(product_id);
 CREATE INDEX idx_payments_transaction_id ON public.payments(transaction_id);
+CREATE INDEX idx_kitchen_orders_transaction_id ON public.kitchen_orders(transaction_id);
+CREATE INDEX idx_kitchen_orders_store_id ON public.kitchen_orders(store_id);
+CREATE INDEX idx_kitchen_orders_status ON public.kitchen_orders(status);
+CREATE INDEX idx_kitchen_orders_assigned_to ON public.kitchen_orders(assigned_to);
 
 -- RLS (Row Level Security) Policies
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
@@ -247,6 +270,7 @@ ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.transaction_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.applied_discounts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.kitchen_orders ENABLE ROW LEVEL SECURITY;
 
 -- Profiles policies
 CREATE POLICY "Users can view own profile" ON public.profiles FOR SELECT USING (auth.uid() = id);
@@ -311,6 +335,13 @@ CREATE POLICY "Store access for transactions" ON public.transactions FOR ALL USI
   )
 );
 
+CREATE POLICY "Store access for kitchen orders" ON public.kitchen_orders FOR ALL USING (
+  store_id IN (
+    SELECT store_id FROM public.store_staff 
+    WHERE user_id = auth.uid() AND is_active = true
+  )
+);
+
 -- Functions for automatic updates
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
@@ -343,3 +374,4 @@ CREATE TRIGGER update_inventory_updated_at BEFORE UPDATE ON public.inventory FOR
 CREATE TRIGGER update_discounts_updated_at BEFORE UPDATE ON public.discounts FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 CREATE TRIGGER update_customers_updated_at BEFORE UPDATE ON public.customers FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 CREATE TRIGGER update_transactions_updated_at BEFORE UPDATE ON public.transactions FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+CREATE TRIGGER update_kitchen_orders_updated_at BEFORE UPDATE ON public.kitchen_orders FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();

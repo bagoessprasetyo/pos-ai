@@ -14,11 +14,15 @@ import {
   Building,
   Tags,
   X,
-  Brain
+  Brain,
+  ChefHat,
+  TableProperties
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { usePermissions } from '@/contexts/permission-context'
+import { useStoreSettings } from '@/hooks/use-store-settings'
+import { useDineInSettings } from '@/hooks/use-dine-in-settings'
 import type { PermissionChecker } from '@/lib/permissions'
 
 // Helper function to check route permissions
@@ -36,6 +40,14 @@ function getRoutePermission(route: string, permissions: PermissionChecker): bool
     
     case '/dashboard/pos':
       return permissions.canAccessPOS()
+    
+    case '/dashboard/kitchen':
+      return permissions.canAccessKitchen()
+    
+    case '/dashboard/table-layout':
+    case '/dashboard/tables':
+    case '/dashboard/reservations':
+      return permissions.canRead('tables')
     
     case '/dashboard/transactions':
       return permissions.canRead('transactions')
@@ -60,7 +72,7 @@ function getRoutePermission(route: string, permissions: PermissionChecker): bool
   }
 }
 
-const navItems = [
+const getNavItems = (kitchenDashboardEnabled: boolean, dineInEnabled: boolean) => [
   {
     name: 'Dashboard',
     href: '/dashboard',
@@ -81,6 +93,21 @@ const navItems = [
     href: '/dashboard/pos',
     icon: ShoppingCart,
   },
+  ...(kitchenDashboardEnabled ? [{
+    name: 'Kitchen',
+    href: '/dashboard/kitchen',
+    icon: ChefHat,
+  }] : []),
+  ...(dineInEnabled ? [{
+    name: 'Tables',
+    href: '/dashboard/tables',
+    icon: TableProperties,
+    children: [
+      { name: 'Layout Designer', href: '/dashboard/table-layout' },
+      { name: 'Table Management', href: '/dashboard/tables' },
+      { name: 'Reservations', href: '/dashboard/reservations' },
+    ]
+  }] : []),
   {
     name: 'Transactions',
     href: '/dashboard/transactions',
@@ -130,6 +157,10 @@ interface SidebarProps {
 export function Sidebar({ open, collapsed = false, onClose }: SidebarProps) {
   const pathname = usePathname()
   const { permissions } = usePermissions()
+  const { kitchen_dashboard_enabled } = useStoreSettings()
+  const dineInSettings = useDineInSettings()
+  
+  const navItems = getNavItems(kitchen_dashboard_enabled, dineInSettings.enabled)
 
   return (
     <>

@@ -4,12 +4,14 @@ import { createContext, useContext, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from './auth-context'
 import type { Database } from '@/lib/supabase'
+import { UserRole } from '@/types'
 
 type Store = Database['public']['Tables']['stores']['Row']
 
 interface StoreContextType {
   stores: Store[]
   currentStore: Store | null
+  userRole: UserRole | null
   loading: boolean
   setCurrentStore: (store: Store) => void
   refreshStores: () => Promise<void>
@@ -20,14 +22,55 @@ const StoreContext = createContext<StoreContextType | undefined>(undefined)
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [stores, setStores] = useState<Store[]>([])
   const [currentStore, setCurrentStore] = useState<Store | null>(null)
+  const [userRole, setUserRole] = useState<UserRole | null>(null)
   const [loading, setLoading] = useState(true)
   const { user } = useAuth()
   const supabase = createClient()
+
+  // Function to get user role for a specific store
+  const getUserRoleForStore = async (storeId: string): Promise<UserRole | null> => {
+    if (!user) return null
+
+    try {
+      // Check if user is the owner of the store
+      const { data: storeData, error: storeError } = await supabase
+        .from('stores')
+        .select('owner_id')
+        .eq('id', storeId)
+        .single()
+
+      if (storeError) throw storeError
+
+      if (storeData.owner_id === user.id) {
+        return UserRole.OWNER
+      }
+
+      // Check if user is staff member
+      const { data: staffData, error: staffError } = await supabase
+        .from('store_staff')
+        .select('role')
+        .eq('store_id', storeId)
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .single()
+
+      if (staffError) {
+        console.log('No staff record found for user in store')
+        return null
+      }
+
+      return staffData.role as UserRole
+    } catch (error) {
+      console.error('Error getting user role for store:', error)
+      return null
+    }
+  }
 
   const refreshStores = async () => {
     if (!user) {
       setStores([])
       setCurrentStore(null)
+      setUserRole(null)
       setLoading(false)
       return
     }
@@ -83,22 +126,35 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           ? uniqueStores.find(s => s.id === savedStoreId)
           : null
         
-        setCurrentStore(savedStore || uniqueStores[0])
+        const storeToSet = savedStore || uniqueStores[0]
+        setCurrentStore(storeToSet)
+        
+        // Get and set user role for the selected store
+        const role = await getUserRoleForStore(storeToSet.id)
+        setUserRole(role)
+        console.log('Initial user role for store', storeToSet.id, ':', role)
       } else if (uniqueStores.length === 0) {
         setCurrentStore(null)
+        setUserRole(null)
       }
     } catch (error) {
       console.error('Error fetching stores:', error)
       setStores([])
       setCurrentStore(null)
+      setUserRole(null)
     } finally {
       setLoading(false)
     }
   }
 
-  const handleSetCurrentStore = (store: Store) => {
+  const handleSetCurrentStore = async (store: Store) => {
     setCurrentStore(store)
     localStorage.setItem('currentStoreId', store.id)
+    
+    // Get and set user role for the new store
+    const role = await getUserRoleForStore(store.id)
+    setUserRole(role)
+    console.log('User role for store', store.id, ':', role)
   }
 
   useEffect(() => {
@@ -107,6 +163,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     } else {
       setStores([])
       setCurrentStore(null)
+      setUserRole(null)
       setLoading(false)
     }
   }, [user])
@@ -115,6 +172,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     <StoreContext.Provider value={{
       stores,
       currentStore,
+      userRole,
       loading,
       setCurrentStore: handleSetCurrentStore,
       refreshStores,
